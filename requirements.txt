@@ -1,0 +1,26 @@
+# Core data / numerical
+numpy
+pandas
+python-dateutil
+scipy
+
+# Modeling
+scikit-learn
+statsmodels
+xgboost
+lightgbm
+catboost
+shap
+
+# Visualization
+matplotlib
+seaborn
+
+# App
+streamlit
+
+# Crawling
+selenium
+undetected-chromedriver
+cloudscraper
+beautifulsoup4

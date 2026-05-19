@@ -1,0 +1,35 @@
+# OS / editor metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.python-version
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Excel/Office lock files
+~$*
+
+# CatBoost training logs (regenerable artifacts)
+catboost_info/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs / temp
+*.log
+*.tmp
+.cache/
