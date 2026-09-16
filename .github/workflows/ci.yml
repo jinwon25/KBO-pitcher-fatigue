@@ -1,4 +1,4 @@
-name: reproducibility
+name: Portfolio checks
 
 on:
   push:
