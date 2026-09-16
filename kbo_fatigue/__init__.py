@@ -20,6 +20,8 @@ from .pbp import (
     add_pbp_context,
     load_pbp_features,
     process_signal_summary,
+    reliever_re24_decile_summary,
+    reliever_re24_summary,
     validate_pbp_features,
     within_appearance_velocity_summary,
 )
@@ -42,6 +44,8 @@ __all__ = [
     "add_pbp_context",
     "load_pbp_features",
     "process_signal_summary",
+    "reliever_re24_decile_summary",
+    "reliever_re24_summary",
     "validate_pbp_features",
     "within_appearance_velocity_summary",
 ]

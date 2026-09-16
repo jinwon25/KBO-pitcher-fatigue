@@ -127,6 +127,23 @@
     "score": "피로도지수_점수는 피로도지수의 전체 표본 내 백분위 순위",
     "scope": "기술적 모니터링 신호이며 생리적 피로·부상·교체 시점을 진단하지 않음"
   },
+  "snapshot_2025_readiness": {
+    "status": "partial_season_not_external_holdout",
+    "appearance_rows": 2580,
+    "players": 99,
+    "date_min": "2025-03-23",
+    "date_max": "2025-07-10",
+    "duplicate_name_date_team_rows": 13,
+    "injury_rows": 11,
+    "injury_date_min": "2025-04-17",
+    "injury_date_max": "2025-06-27",
+    "holdout_ready": false,
+    "blockers": [
+      "season ends on 2025-07-10 in the local snapshot",
+      "same-day doubleheaders lack a game identifier",
+      "injury table contains only 11 rows"
+    ]
+  },
   "external_pbp": {
     "dataset": {
       "rows": 7924,
@@ -240,6 +257,34 @@
         "high_minus_low": -0.25,
         "cluster_bootstrap_ci_low": -0.333333,
         "cluster_bootstrap_ci_high": 0.0
+      }
+    ],
+    "reliever_re24_summary": [
+      {
+        "scope": "all_relief",
+        "n": 6167,
+        "players": 105,
+        "score_r": -0.003223,
+        "below_72_6_mean": -0.06143,
+        "above_72_6_mean": -0.058518,
+        "high_minus_low": 0.002911,
+        "cluster_bootstrap_ci_low": -0.008203,
+        "cluster_bootstrap_ci_high": 0.015548,
+        "below_72_6_positive_rate": 0.301909,
+        "above_72_6_positive_rate": 0.301455
+      },
+      {
+        "scope": "close_late_entry",
+        "n": 2659,
+        "players": 99,
+        "score_r": -0.003429,
+        "below_72_6_mean": -0.06086,
+        "above_72_6_mean": -0.058432,
+        "high_minus_low": 0.002429,
+        "cluster_bootstrap_ci_low": -0.016778,
+        "cluster_bootstrap_ci_high": 0.023108,
+        "below_72_6_positive_rate": 0.28976,
+        "above_72_6_positive_rate": 0.302552
       }
     ],
     "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",

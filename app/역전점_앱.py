@@ -24,6 +24,8 @@ from kbo_fatigue import (
     forward_decile_summary,
     load_dataset,
     load_pbp_features,
+    reliever_re24_decile_summary,
+    reliever_re24_summary,
 )
 
 
@@ -97,6 +99,13 @@ def process_table(frame: pd.DataFrame, player: str, date: pd.Timestamp) -> pd.Da
         "존 통과율": f"{row['pbp_zone_rate'] * 100:.1f}%",
         "초구 스트라이크율": f"{row['pbp_first_pitch_strike_rate'] * 100:.1f}%",
         "7회 이후 2점차 이내 투구 비중": f"{row['pbp_high_pressure_share'] * 100:.1f}%",
+        "등판 진입 상황": (
+            f"{int(row['pbp_entry_inning'])}회·{int(row['pbp_entry_outs'])}아웃·"
+            f"주자 {int(row['pbp_entry_runners'])}명·{int(row['pbp_entry_run_margin']):+d}점"
+        ),
+        "RE24 허용": f"{row['pbp_re24_allowed']:+.2f}",
+        "RE24 허용 / 상대 타자": f"{row['pbp_re24_allowed_per_bf']:+.3f}",
+        "접전 후반 진입": "예" if row["pbp_close_late_entry"] else "아니오",
     }
     return pd.DataFrame([values])
 
@@ -163,7 +172,8 @@ st.caption("관측값을 나란히 제시할 뿐, 어느 선수를 기용해야 
 with st.expander("투구 단위 프로세스 지표 · 2023–2024"):
     st.caption(
         "경기 결과뿐 아니라 구속 유지, 헛스윙·루킹 스트라이크(CSW), 존 통과율을 함께 봅니다. "
-        "최근 5회 기준은 같은 선수·같은 보직의 이전 등판만 사용합니다."
+        "불펜은 등판 진입 상황과 RE24를 추가로 확인합니다. 최근 5회 기준은 같은 "
+        "선수·같은 보직의 이전 등판만 사용합니다."
     )
     st.caption(
         "데이터: [slothman3878/kbo_playbyplay](https://huggingface.co/datasets/"
@@ -183,6 +193,34 @@ with st.expander("투구 단위 프로세스 지표 · 2023–2024"):
             hide_index=True, use_container_width=True,
         )
 
+with st.expander("불펜 전용 진단 · RE24와 다음 등판"):
+    st.caption(
+        "RE24 허용은 각 타석의 `실점 + 종료 상태 기대득점 − 시작 상태 기대득점`을 "
+        "합산한 값으로, 낮을수록 투수에게 좋습니다. 승리확률을 반영한 공식 gmLI는 아닙니다."
+    )
+    re24_deciles = reliever_re24_decile_summary(get_data(), get_pbp_data())
+    re24_chart = re24_deciles.pivot(
+        index="score_decile", columns="horizon", values="mean_re24_allowed_per_bf"
+    ).rename(
+        columns={
+            "same_appearance": "같은 불펜 등판",
+            "next_appearance": "다음 불펜 등판",
+        }
+    )
+    st.line_chart(
+        re24_chart, x_label="현재 점수 10분위", y_label="평균 RE24 허용 / 상대 타자",
+        height=330,
+    )
+    re24_summary = reliever_re24_summary(get_data(), get_pbp_data()).set_index("scope")
+    overall = re24_summary.loc["all_relief"]
+    close = re24_summary.loc["close_late_entry"]
+    st.write(
+        f"같은 등판의 RE24는 점수 구간을 따라 명확히 구분되지만, 다음 불펜 등판 "
+        f"{int(overall['n']):,}건에서 72.6 이상−미만 RE24/BF 평균 차이는 "
+        f"{overall['high_minus_low']:+.3f}입니다. 접전 후반 진입 {int(close['n']):,}건에서도 "
+        f"{close['high_minus_low']:+.3f}로 작아, 현재 점수는 불펜의 다음 등판 단독 예측값보다 "
+        "당일 workload·경기 상태를 함께 보는 모니터링 신호로 해석하는 편이 적절합니다."
+    )
 st.divider()
 st.subheader("점수 구간과 경기 성과")
 horizon = st.radio(

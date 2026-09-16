@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from kbo_fatigue import (
@@ -7,6 +8,8 @@ from kbo_fatigue import (
     load_dataset,
     load_pbp_features,
     process_signal_summary,
+    reliever_re24_decile_summary,
+    reliever_re24_summary,
     validate_pbp_features,
     within_appearance_velocity_summary,
 )
@@ -15,6 +18,7 @@ from kbo_fatigue import (
 ROOT = Path(__file__).resolve().parents[1]
 CANONICAL = ROOT / "data" / "final" / "fatigue_with_index.csv"
 PBP = ROOT / "data" / "external" / "pbp_appearance_2023_2024.csv"
+RE24_MATRIX = ROOT / "data" / "external" / "re24_matrix_2023_2024.csv"
 
 
 @pytest.fixture(scope="module")
@@ -33,6 +37,22 @@ def test_external_pbp_contract_and_coverage(datasets):
     assert checks["canonical_coverage_rate"] == pytest.approx(0.9745, abs=1e-4)
     assert checks["pitch_count_correlation"] == pytest.approx(0.9995, abs=1e-4)
     assert checks["pitch_count_exact_rate"] == pytest.approx(0.9937, abs=1e-4)
+    assert pbp["pbp_batters_faced"].ge(1).all()
+    assert pbp["pbp_entry_outs"].between(0, 2).all()
+    assert pbp["pbp_entry_runners"].between(0, 3).all()
+    assert pbp["pbp_re24_allowed_per_bf"].notna().all()
+
+
+def test_re24_matrix_contains_all_base_out_states():
+    matrix = pd.read_csv(RE24_MATRIX)
+    assert len(matrix) == 24
+    assert matrix[["outs_when_up", "base_state"]].drop_duplicates().shape[0] == 24
+    assert matrix["plate_appearances"].min() == 188
+    empty_zero_out = matrix.loc[
+        matrix["outs_when_up"].eq(0) & matrix["base_state"].eq(0),
+        "run_expectancy",
+    ].iloc[0]
+    assert empty_zero_out == pytest.approx(0.559513, abs=1e-6)
 
 
 def test_personal_baseline_excludes_current_appearance(datasets):
@@ -69,3 +89,24 @@ def test_within_appearance_velocity_signal_is_reproducible(datasets):
     assert summary.loc["SP", "score_r"] == pytest.approx(-0.1265, abs=1e-4)
     assert summary.loc["SP", "below_72_6_median"] == -1.0
     assert summary.loc["SP", "above_72_6_median"] == pytest.approx(-1.2857, abs=1e-4)
+
+
+def test_reliever_re24_separates_description_from_forward_validation(datasets):
+    canonical, pbp = datasets
+    summary = reliever_re24_summary(canonical, pbp).set_index("scope")
+    assert summary.loc["all_relief", "n"] == 6_167
+    assert summary.loc["close_late_entry", "n"] == 2_659
+    assert summary.loc["all_relief", "high_minus_low"] == pytest.approx(
+        0.002911, abs=1e-6
+    )
+    assert summary.loc["all_relief", "score_r"] == pytest.approx(-0.003223, abs=1e-6)
+
+    deciles = reliever_re24_decile_summary(canonical, pbp).set_index(
+        ["horizon", "score_decile"]
+    )
+    same_low = deciles.loc[("same_appearance", 1), "mean_re24_allowed_per_bf"]
+    same_high = deciles.loc[("same_appearance", 10), "mean_re24_allowed_per_bf"]
+    next_low = deciles.loc[("next_appearance", 1), "mean_re24_allowed_per_bf"]
+    next_high = deciles.loc[("next_appearance", 10), "mean_re24_allowed_per_bf"]
+    assert same_high - same_low > 0.5
+    assert abs(next_high - next_low) < 0.01

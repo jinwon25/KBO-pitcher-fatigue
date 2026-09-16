@@ -24,6 +24,8 @@ from kbo_fatigue import (
     load_dataset,
     load_pbp_features,
     process_signal_summary,
+    reliever_re24_decile_summary,
+    reliever_re24_summary,
     validate_pbp_features,
     within_appearance_velocity_summary,
 )
@@ -31,6 +33,7 @@ from kbo_fatigue import (
 
 DATA = ROOT / "data" / "final" / "fatigue_with_index.csv"
 PBP_DATA = ROOT / "data" / "external" / "pbp_appearance_2023_2024.csv"
+SNAPSHOT_2025 = ROOT / "data" / "raw" / "mykbo_2025"
 REPORTS = ROOT / "reports"
 FIGURES = REPORTS / "figures"
 
@@ -46,6 +49,32 @@ def style_axis(ax: plt.Axes) -> None:
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", color=GRID, linewidth=0.8, alpha=0.8)
     ax.set_axisbelow(True)
+
+
+def audit_2025_snapshot() -> dict:
+    appearances = pd.read_csv(SNAPSHOT_2025 / "2025년_mykbo.csv")
+    injuries = pd.read_csv(SNAPSHOT_2025 / "2025년_부상.csv")
+    dates = pd.to_datetime(appearances["Date"], errors="raise")
+    injury_dates = pd.to_datetime(injuries["날짜"], errors="raise")
+    return {
+        "status": "partial_season_not_external_holdout",
+        "appearance_rows": int(len(appearances)),
+        "players": int(appearances["Name"].nunique()),
+        "date_min": dates.min().date().isoformat(),
+        "date_max": dates.max().date().isoformat(),
+        "duplicate_name_date_team_rows": int(
+            appearances.duplicated(["Name", "Date", "Team"]).sum()
+        ),
+        "injury_rows": int(len(injuries)),
+        "injury_date_min": injury_dates.min().date().isoformat(),
+        "injury_date_max": injury_dates.max().date().isoformat(),
+        "holdout_ready": False,
+        "blockers": [
+            "season ends on 2025-07-10 in the local snapshot",
+            "same-day doubleheaders lack a game identifier",
+            "injury table contains only 11 rows",
+        ],
+    }
 
 
 def save_score_definition(frame) -> None:
@@ -315,18 +344,81 @@ def save_pitch_process_extension(process, velocity) -> None:
     plt.close(fig)
 
 
+def save_reliever_re24_extension(deciles, summary) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.9))
+    labels = {
+        "same_appearance": "Same relief appearance",
+        "next_appearance": "Next relief appearance",
+    }
+    colors = {"same_appearance": RED, "next_appearance": BLUE}
+    for horizon in ("same_appearance", "next_appearance"):
+        subset = deciles.loc[deciles["horizon"].eq(horizon)]
+        axes[0].plot(
+            subset["score_decile"], subset["mean_re24_allowed_per_bf"],
+            marker="o", linewidth=2.4, label=labels[horizon], color=colors[horizon],
+        )
+    axes[0].axhline(0, color=GRAY, linewidth=1)
+    axes[0].set_xticks(range(1, 11))
+    axes[0].set_xlabel("Current score decile")
+    axes[0].set_ylabel("Mean RE24 allowed per batter faced")
+    axes[0].set_title("Current-game description vs. persistence", loc="left", fontweight="bold")
+    axes[0].legend(frameon=False)
+    style_axis(axes[0])
+
+    order = ["all_relief", "close_late_entry"]
+    estimates = summary.set_index("scope").loc[order]
+    y = [1, 0]
+    values = estimates["high_minus_low"].to_numpy()
+    axes[1].errorbar(
+        values, y,
+        xerr=[
+            values - estimates["cluster_bootstrap_ci_low"].to_numpy(),
+            estimates["cluster_bootstrap_ci_high"].to_numpy() - values,
+        ],
+        fmt="o", color=NAVY, ecolor=BLUE, capsize=5, markersize=7,
+    )
+    axes[1].axvline(0, color=GRAY, linestyle="--", linewidth=1.2)
+    axes[1].set_yticks(y, ["All next relief outings", "Next close-late entries"])
+    axes[1].set_xlabel("At/above 72.6 − below 72.6\n(next RE24 allowed/BF; 95% CI)")
+    axes[1].set_title("Next outing needs recovery signals", loc="left", fontweight="bold")
+    axes[1].grid(axis="x", color=GRID, linewidth=0.8, alpha=0.8)
+    axes[1].grid(axis="y", visible=False)
+    axes[1].spines[["top", "right"]].set_visible(False)
+    for position, (_, row) in zip(y, estimates.iterrows()):
+        axes[1].text(
+            axes[1].get_xlim()[1], position,
+            f"n={int(row['n']):,}", ha="right", va="bottom", color=GRAY, fontsize=9,
+        )
+
+    fig.suptitle(
+        "RE24 sharpens the relief-pitcher score's role and time horizon",
+        x=0.05, ha="left", fontsize=15, fontweight="bold", color=NAVY,
+    )
+    fig.text(
+        0.05, 0.01,
+        "Positive RE24 allowed is worse for the pitcher. Close-late = entry in inning 7+ within two runs; it is not official gmLI. Player-cluster bootstrap 95% CI.",
+        color=GRAY, fontsize=9.5,
+    )
+    fig.tight_layout(rect=(0, 0.06, 1, 0.91))
+    fig.savefig(FIGURES / "08_reliever_re24.png", dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     REPORTS.mkdir(exist_ok=True)
     FIGURES.mkdir(exist_ok=True)
     frame = load_dataset(DATA)
     pbp = load_pbp_features(PBP_DATA)
     metrics = build_audit_metrics(frame)
+    metrics["snapshot_2025_readiness"] = audit_2025_snapshot()
     summary = decile_summary(frame)
     forward = forward_validation_summary(frame)
     forward_deciles = forward_decile_summary(frame)
     pbp_checks = validate_pbp_features(pbp, frame)
     process = process_signal_summary(frame, pbp, bootstrap_iterations=500)
     velocity = within_appearance_velocity_summary(frame, pbp, bootstrap_iterations=500)
+    relief_re24 = reliever_re24_summary(frame, pbp, bootstrap_iterations=500)
+    relief_re24_deciles = reliever_re24_decile_summary(frame, pbp)
     metrics["external_pbp"] = {
         "dataset": {
             key: round(value, 4) if isinstance(value, float) else value
@@ -334,6 +426,7 @@ def main() -> None:
         },
         "process_summary": process.round(6).to_dict(orient="records"),
         "within_appearance_velocity": velocity.round(6).to_dict(orient="records"),
+        "reliever_re24_summary": relief_re24.round(6).to_dict(orient="records"),
         "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
         "license": "CC BY 4.0",
     }
@@ -347,6 +440,12 @@ def main() -> None:
     )
     process.to_csv(REPORTS / "pbp_process_validation.csv", index=False, encoding="utf-8")
     velocity.to_csv(REPORTS / "pbp_velocity_validation.csv", index=False, encoding="utf-8")
+    relief_re24.to_csv(
+        REPORTS / "reliever_re24_validation.csv", index=False, encoding="utf-8"
+    )
+    relief_re24_deciles.to_csv(
+        REPORTS / "reliever_re24_deciles.csv", index=False, encoding="utf-8"
+    )
     save_score_definition(frame)
     save_outcome_relationship(summary)
     save_validation_diagnostic(metrics)
@@ -354,6 +453,7 @@ def main() -> None:
     save_kim_taekyeon_case(frame)
     save_temporal_model(metrics)
     save_pitch_process_extension(process, velocity)
+    save_reliever_re24_extension(relief_re24_deciles, relief_re24)
     print(f"Built report artifacts in {REPORTS.relative_to(ROOT)}")
 
 
