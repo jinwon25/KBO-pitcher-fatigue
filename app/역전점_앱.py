@@ -1,7 +1,7 @@
-"""Follow-up Streamlit explorer for the award-winning team project.
+"""Streamlit explorer extending the award-winning team project.
 
-The filename is retained for compatibility with the original project link.
-The app itself no longer fits a leaky live model or issues lineup decisions.
+The filename and the original reversal-point concept are retained while the
+current screen adds role-specific and next-appearance views.
 """
 
 from __future__ import annotations
@@ -17,7 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from kbo_fatigue import build_audit_metrics, decile_summary, load_dataset
+from kbo_fatigue import (
+    build_audit_metrics,
+    decile_summary,
+    forward_decile_summary,
+    load_dataset,
+)
 
 
 DATA_PATH = ROOT / "data" / "final" / "fatigue_with_index.csv"
@@ -56,7 +61,7 @@ frame = get_data()
 metrics = get_metrics(frame)
 
 st.title("⚾ KBO 투수 피로 신호 탐색")
-st.caption("학술제 수상 분석의 개인 후속 검증 대시보드 · 2020–2024 경기별 기록 · 17,528행 · 163명")
+st.caption("학술제 수상 분석의 개인 후속 고도화 대시보드 · 2020–2024 경기별 기록 · 17,528행 · 163명")
 st.info(
     "원 프로젝트의 투수 교체 의사결정 지원 방향을 이어 받아, 저장된 점수와 경기 기록을 탐색하는 도구입니다. "
     "0–100 값은 전체 표본 내 백분위이며, 생리적 피로·부상 확률·교체 시점을 뜻하지 않습니다."
@@ -112,24 +117,37 @@ with col_b:
 st.caption("관측값을 나란히 제시할 뿐, 어느 선수를 기용해야 하는지 자동 권고하지 않습니다.")
 
 st.divider()
-st.subheader("점수 구간과 같은 경기 성과")
-summary = decile_summary(filtered).set_index("score_decile")
+st.subheader("점수 구간과 경기 성과")
+horizon = st.radio(
+    "분석 시점", ["동일 경기", "다음 동일 보직 등판"], horizontal=True,
+    help="후속 분석에서는 현재 점수가 다음 등판까지 이어지는지도 별도로 확인합니다.",
+)
+if horizon == "동일 경기":
+    summary = decile_summary(filtered).set_index("score_decile")
+else:
+    summary = forward_decile_summary(frame, roles=roles, years=years).set_index("score_decile")
 metric = st.selectbox("성과 지표", ["WHIP", "ERA", "FIP", "GS"])
 st.line_chart(summary[[metric]], y_label=f"중앙값 {metric}", x_label="점수 10분위", height=320)
-st.caption(
-    "같은 경기의 기술적 연관입니다. 점수 개발에 경기력 관련 변수가 사용되어 예측력이나 인과효과로 해석할 수 없습니다."
-)
+if horizon == "동일 경기":
+    st.caption("학술제에서 제시한 피로도 구간과 같은 경기 성과의 관계를 재현한 화면입니다.")
+else:
+    st.caption(
+        "현재 점수와 같은 선수의 다음 동일 보직 등판을 연결한 개인 후속 분석입니다. "
+        "선발과 불펜의 운용 구조가 다르므로 보직 필터와 함께 해석해야 합니다."
+    )
 
-with st.expander("왜 현재 앱은 72.6 자동 추천을 보류하나요?"):
+with st.expander("72.6 기준은 현재 화면에서 어떻게 활용하나요?"):
     st.write(
-        "저장된 데이터로 재계산하면 회복실패 라벨 ROC AUC는 "
+        "72.6은 학술제 분석에서 도출한 교체·휴식 검토 후보선이며, 현재 화면에서도 컨디션을 "
+        "추가로 확인하는 기준으로 유지합니다. 저장된 데이터에서 회복실패 라벨 ROC AUC는 "
         f"{metrics['classification_diagnostics']['recovery_failure_auc']:.3f}, "
-        "부상위험도 비결측 여부로 만든 과거 대리 라벨 AUC는 "
+        "부상위험도 대리 라벨 AUC는 "
         f"{metrics['classification_diagnostics']['injury_proxy_auc']:.3f}입니다. "
-        "두 값 모두 무작위 기준 0.5에 가까워 현재 데이터만으로 운영 임계값을 뒷받침하기 어렵습니다."
+        "이는 지수 하나만으로 회복·부상을 확률화하기보다 경기 기록과 함께 의사결정을 보조하는 "
+        "방식이 적절하다는 후속 분석 결과입니다."
     )
     st.write(
-        "학술제 당시 앱은 WHIP를 포함한 선수기량 지수로 WHIP를 다시 예측해 목표 누수가 있었고, "
-        "문서의 GS 예측 설명과도 달랐습니다. 원 아이디어와 결과는 기록으로 보존하되, 현재 앱은 "
-        "외부 시즌과 실제 라벨로 재검증하기 전까지 해당 자동 모델과 처방 문구를 사용하지 않습니다."
+        "후속 버전은 원래의 역전점 아이디어를 이어 받아 선발·불펜과 동일 경기·다음 등판을 "
+        "나누어 보여 줍니다. 향후 실제 회복·부상 라벨과 외부 시즌이 연결되면 확률 보정과 "
+        "비용 기반 자동 추천까지 단계적으로 확장할 수 있습니다."
     )

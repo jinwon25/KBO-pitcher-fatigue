@@ -41,6 +41,88 @@
     "injury_proxy_auc": 0.5079,
     "injury_proxy_definition": "부상위험도가 결측이 아니고 0보다 큰 행"
   },
+  "forward_validation": {
+    "ALL": {
+      "n": 17276,
+      "players": 163,
+      "same_game_gs_r": -0.3615,
+      "next_appearance_gs_r": -0.0435,
+      "within_player_season_next_gs_r": 0.0059,
+      "below_72_6_next_gs_median": 46.0,
+      "above_72_6_next_gs_median": 45.0,
+      "above_72_6_n": 4710
+    },
+    "SP": {
+      "n": 3406,
+      "players": 93,
+      "same_game_gs_r": -0.7948,
+      "next_appearance_gs_r": -0.1243,
+      "within_player_season_next_gs_r": 0.0152,
+      "below_72_6_next_gs_median": 64.0,
+      "above_72_6_next_gs_median": 60.0,
+      "above_72_6_n": 505
+    },
+    "RP": {
+      "n": 13870,
+      "players": 146,
+      "same_game_gs_r": -0.5422,
+      "next_appearance_gs_r": -0.0173,
+      "within_player_season_next_gs_r": 0.0001,
+      "below_72_6_next_gs_median": 45.0,
+      "above_72_6_next_gs_median": 45.0,
+      "above_72_6_n": 4205
+    }
+  },
+  "temporal_starter_model": {
+    "target": "next same-role starter GS",
+    "features": [
+      "투구수",
+      "이닝",
+      "NP/IP",
+      "투구수_roll3",
+      "이닝_roll3",
+      "휴식일수",
+      "연투여부",
+      "연투일수",
+      "연투횟수",
+      "누적연투일수",
+      "휴식대연투비율",
+      "GS_roll3",
+      "GS_roll5"
+    ],
+    "validation_year": 2023,
+    "test_year": 2024,
+    "selected_alpha": 1000.0,
+    "train_n": 2452,
+    "test_n": 861,
+    "model": {
+      "mae": 9.7332,
+      "rmse": 12.2211,
+      "r2": 0.0841
+    },
+    "mean_baseline": {
+      "mae": 10.1681,
+      "rmse": 12.7719,
+      "r2": -0.0004
+    },
+    "mae_improvement_pct": 4.28,
+    "standardized_coefficients": {
+      "투구수": 0.2627,
+      "이닝": 0.4651,
+      "NP/IP": -0.0594,
+      "투구수_roll3": 0.3435,
+      "이닝_roll3": 0.4986,
+      "휴식일수": -0.146,
+      "연투여부": 0.0,
+      "연투일수": 0.0,
+      "연투횟수": -0.2574,
+      "누적연투일수": 0.0,
+      "휴식대연투비율": -0.1191,
+      "GS_roll3": 0.5772,
+      "GS_roll5": 1.094
+    },
+    "interpretation": "탐색적 시간 외 검증이며 운영 예측 모델이 아님. GS는 선발 평가에만 사용."
+  },
   "interpretation": {
     "score": "피로도지수_점수는 피로도지수의 전체 표본 내 백분위 순위",
     "scope": "기술적 모니터링 신호이며 생리적 피로·부상·교체 시점을 진단하지 않음"
