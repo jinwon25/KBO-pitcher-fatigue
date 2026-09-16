@@ -1,9 +1,12 @@
 PYTHON ?= python3
 
-.PHONY: report test validate notebook check app
+.PHONY: report external test validate notebook check app
 
 report:
 	$(PYTHON) scripts/build_report.py
+
+external:
+	$(PYTHON) scripts/build_pbp_features.py --download
 
 test:
 	$(PYTHON) -m pytest -q

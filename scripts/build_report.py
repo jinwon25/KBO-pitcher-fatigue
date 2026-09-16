@@ -22,10 +22,15 @@ from kbo_fatigue import (
     forward_decile_summary,
     forward_validation_summary,
     load_dataset,
+    load_pbp_features,
+    process_signal_summary,
+    validate_pbp_features,
+    within_appearance_velocity_summary,
 )
 
 
 DATA = ROOT / "data" / "final" / "fatigue_with_index.csv"
+PBP_DATA = ROOT / "data" / "external" / "pbp_appearance_2023_2024.csv"
 REPORTS = ROOT / "reports"
 FIGURES = REPORTS / "figures"
 
@@ -234,14 +239,104 @@ def save_temporal_model(metrics) -> None:
     plt.close(fig)
 
 
+def save_pitch_process_extension(process, velocity) -> None:
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
+    roles = ["SP", "RP"]
+    role_labels = ["Starter", "Reliever"]
+    positions = range(len(roles))
+    width = 0.34
+
+    velocity_role = velocity.set_index("role").loc[roles]
+    axes[0].bar(
+        [value - width / 2 for value in positions],
+        velocity_role["below_72_6_median"], width=width, color=BLUE, label="Below 72.6",
+    )
+    axes[0].bar(
+        [value + width / 2 for value in positions],
+        velocity_role["above_72_6_median"], width=width, color=RED, label="At or above 72.6",
+    )
+    axes[0].set_xticks(list(positions), role_labels)
+    axes[0].axhline(0, color=GRAY, linewidth=1)
+    axes[0].set_ylabel("Late minus early hard-pitch velocity (km/h)")
+    axes[0].set_title("Within-appearance velocity", loc="left", fontweight="bold")
+    axes[0].legend(frameon=False, fontsize=9)
+    style_axis(axes[0])
+
+    rate_metrics = [("pbp_csw_rate", "CSW"), ("pbp_zone_rate", "Zone")]
+    for offset, (metric, label) in zip((-width / 2, width / 2), rate_metrics):
+        values = []
+        lower = []
+        upper = []
+        for role in roles:
+            row = process.loc[(process["role"] == role) & (process["metric"] == metric)].iloc[0]
+            estimate = row["high_minus_low"] * 100
+            values.append(estimate)
+            lower.append(estimate - row["cluster_bootstrap_ci_low"] * 100)
+            upper.append(row["cluster_bootstrap_ci_high"] * 100 - estimate)
+        axes[1].bar(
+            [value + offset for value in positions], values, width=width,
+            label=label, color=ORANGE if metric == "pbp_csw_rate" else NAVY,
+            yerr=[lower, upper], capsize=4,
+        )
+    axes[1].set_xticks(list(positions), role_labels)
+    axes[1].axhline(0, color=GRAY, linewidth=1)
+    axes[1].set_ylabel("Next appearance: high − low (percentage points)")
+    axes[1].set_title("Next-appearance command", loc="left", fontweight="bold")
+    axes[1].legend(frameon=False, fontsize=9)
+    style_axis(axes[1])
+
+    velocity_next = process.loc[process["metric"].eq("pbp_hard_velocity")].set_index("role").loc[roles]
+    estimates = velocity_next["high_minus_low"].to_numpy()
+    axes[2].bar(role_labels, estimates, color=[BLUE, RED], width=0.55)
+    axes[2].errorbar(
+        list(positions), estimates,
+        yerr=[
+            estimates - velocity_next["cluster_bootstrap_ci_low"].to_numpy(),
+            velocity_next["cluster_bootstrap_ci_high"].to_numpy() - estimates,
+        ],
+        fmt="none", ecolor=NAVY, capsize=5, linewidth=1.5,
+    )
+    axes[2].axhline(0, color=GRAY, linewidth=1)
+    axes[2].set_ylabel("Next hard-pitch velocity: high − low (km/h)")
+    axes[2].set_title("Next-appearance velocity", loc="left", fontweight="bold")
+    style_axis(axes[2])
+
+    fig.suptitle(
+        "Pitch-level process metrics add context beyond the box score",
+        x=0.04, ha="left", fontsize=15, fontweight="bold", color=NAVY,
+    )
+    fig.text(
+        0.04, 0.01,
+        "2023–2024 matched appearances · next-appearance error bars: player-cluster bootstrap 95% CI · Source: slothman3878/kbo_playbyplay (CC BY 4.0).",
+        color=GRAY, fontsize=10,
+    )
+    fig.tight_layout(rect=(0, 0.04, 1, 0.92))
+    fig.savefig(FIGURES / "07_pitch_process_extension.png", dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     REPORTS.mkdir(exist_ok=True)
     FIGURES.mkdir(exist_ok=True)
     frame = load_dataset(DATA)
+    pbp = load_pbp_features(PBP_DATA)
     metrics = build_audit_metrics(frame)
     summary = decile_summary(frame)
     forward = forward_validation_summary(frame)
     forward_deciles = forward_decile_summary(frame)
+    pbp_checks = validate_pbp_features(pbp, frame)
+    process = process_signal_summary(frame, pbp, bootstrap_iterations=500)
+    velocity = within_appearance_velocity_summary(frame, pbp, bootstrap_iterations=500)
+    metrics["external_pbp"] = {
+        "dataset": {
+            key: round(value, 4) if isinstance(value, float) else value
+            for key, value in pbp_checks.items()
+        },
+        "process_summary": process.round(6).to_dict(orient="records"),
+        "within_appearance_velocity": velocity.round(6).to_dict(orient="records"),
+        "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
+        "license": "CC BY 4.0",
+    }
     (REPORTS / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -250,12 +345,15 @@ def main() -> None:
     forward_deciles.to_csv(
         REPORTS / "next_appearance_deciles.csv", index=False, encoding="utf-8"
     )
+    process.to_csv(REPORTS / "pbp_process_validation.csv", index=False, encoding="utf-8")
+    velocity.to_csv(REPORTS / "pbp_velocity_validation.csv", index=False, encoding="utf-8")
     save_score_definition(frame)
     save_outcome_relationship(summary)
     save_validation_diagnostic(metrics)
     save_role_temporal_validation(forward)
     save_kim_taekyeon_case(frame)
     save_temporal_model(metrics)
+    save_pitch_process_extension(process, velocity)
     print(f"Built report artifacts in {REPORTS.relative_to(ROOT)}")
 
 

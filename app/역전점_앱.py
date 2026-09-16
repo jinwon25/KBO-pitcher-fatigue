@@ -18,14 +18,17 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from kbo_fatigue import (
+    add_pbp_context,
     build_audit_metrics,
     decile_summary,
     forward_decile_summary,
     load_dataset,
+    load_pbp_features,
 )
 
 
 DATA_PATH = ROOT / "data" / "final" / "fatigue_with_index.csv"
+PBP_PATH = ROOT / "data" / "external" / "pbp_appearance_2023_2024.csv"
 
 st.set_page_config(page_title="KBO 투수 피로 신호 탐색", page_icon="⚾", layout="wide")
 
@@ -33,6 +36,11 @@ st.set_page_config(page_title="KBO 투수 피로 신호 탐색", page_icon="⚾"
 @st.cache_data
 def get_data() -> pd.DataFrame:
     return load_dataset(DATA_PATH)
+
+
+@st.cache_data
+def get_pbp_data() -> pd.DataFrame:
+    return load_pbp_features(PBP_PATH)
 
 
 @st.cache_data
@@ -57,7 +65,43 @@ def observation_table(frame: pd.DataFrame, player: str, date: pd.Timestamp) -> p
     return pd.DataFrame([values])
 
 
-frame = get_data()
+def process_table(frame: pd.DataFrame, player: str, date: pd.Timestamp) -> pd.DataFrame:
+    row = frame.loc[(frame["선수"] == player) & (frame["날짜"] == date)].iloc[0]
+    if pd.isna(row["pbp_csw_rate"]):
+        return pd.DataFrame([{"안내": "2023–2024 투구 단위 매칭 자료가 없는 등판입니다."}])
+
+    def difference(column: str, scale: float = 1.0) -> float | None:
+        value = row[f"{column}_vs_prior5"]
+        return None if pd.isna(value) else round(float(value) * scale, 1)
+
+    values = {
+        "강한 공 평균 구속": f"{row['pbp_hard_velocity']:.1f} km/h",
+        "등판 후반 구속 변화": (
+            "-" if pd.isna(row["pbp_late_velocity_delta"])
+            else f"{row['pbp_late_velocity_delta']:+.1f} km/h"
+        ),
+        "최근 5회 대비 구속": (
+            "-" if difference("pbp_hard_velocity") is None
+            else f"{difference('pbp_hard_velocity'):+.1f} km/h"
+        ),
+        "강한 공 비중": f"{row['pbp_hard_usage'] * 100:.1f}%",
+        "최근 5회 대비 강한 공": (
+            "-" if difference("pbp_hard_usage", 100) is None
+            else f"{difference('pbp_hard_usage', 100):+.1f}%p"
+        ),
+        "CSW%": f"{row['pbp_csw_rate'] * 100:.1f}%",
+        "최근 5회 대비 CSW": (
+            "-" if difference("pbp_csw_rate", 100) is None
+            else f"{difference('pbp_csw_rate', 100):+.1f}%p"
+        ),
+        "존 통과율": f"{row['pbp_zone_rate'] * 100:.1f}%",
+        "초구 스트라이크율": f"{row['pbp_first_pitch_strike_rate'] * 100:.1f}%",
+        "7회 이후 2점차 이내 투구 비중": f"{row['pbp_high_pressure_share'] * 100:.1f}%",
+    }
+    return pd.DataFrame([values])
+
+
+frame = add_pbp_context(get_data(), get_pbp_data())
 metrics = get_metrics(frame)
 
 st.title("⚾ KBO 투수 피로 신호 탐색")
@@ -115,6 +159,29 @@ with col_b:
     st.dataframe(observation_table(filtered, player_b, date_b), hide_index=True, use_container_width=True)
 
 st.caption("관측값을 나란히 제시할 뿐, 어느 선수를 기용해야 하는지 자동 권고하지 않습니다.")
+
+with st.expander("투구 단위 프로세스 지표 · 2023–2024"):
+    st.caption(
+        "경기 결과뿐 아니라 구속 유지, 헛스윙·루킹 스트라이크(CSW), 존 통과율을 함께 봅니다. "
+        "최근 5회 기준은 같은 선수·같은 보직의 이전 등판만 사용합니다."
+    )
+    st.caption(
+        "데이터: [slothman3878/kbo_playbyplay](https://huggingface.co/datasets/"
+        "slothman3878/kbo_playbyplay) · CC BY 4.0 · 2023–2024 파생 지표"
+    )
+    process_a, process_b = st.columns(2)
+    with process_a:
+        st.markdown(f"**{player_a} · {date_a.date().isoformat()}**")
+        st.dataframe(
+            process_table(filtered, player_a, date_a),
+            hide_index=True, use_container_width=True,
+        )
+    with process_b:
+        st.markdown(f"**{player_b} · {date_b.date().isoformat()}**")
+        st.dataframe(
+            process_table(filtered, player_b, date_b),
+            hide_index=True, use_container_width=True,
+        )
 
 st.divider()
 st.subheader("점수 구간과 경기 성과")

@@ -14,6 +14,15 @@ from .analysis import (
     temporal_starter_validation,
     validate_dataset,
 )
+from .pbp import (
+    PBP_METRICS,
+    PROCESS_TARGETS,
+    add_pbp_context,
+    load_pbp_features,
+    process_signal_summary,
+    validate_pbp_features,
+    within_appearance_velocity_summary,
+)
 
 __all__ = [
     "REQUIRED_COLUMNS",
@@ -28,4 +37,11 @@ __all__ = [
     "load_dataset",
     "temporal_starter_validation",
     "validate_dataset",
+    "PBP_METRICS",
+    "PROCESS_TARGETS",
+    "add_pbp_context",
+    "load_pbp_features",
+    "process_signal_summary",
+    "validate_pbp_features",
+    "within_appearance_velocity_summary",
 ]

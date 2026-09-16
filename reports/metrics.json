@@ -126,5 +126,123 @@
   "interpretation": {
     "score": "피로도지수_점수는 피로도지수의 전체 표본 내 백분위 순위",
     "scope": "기술적 모니터링 신호이며 생리적 피로·부상·교체 시점을 진단하지 않음"
+  },
+  "external_pbp": {
+    "dataset": {
+      "rows": 7924,
+      "players": 128,
+      "date_min": "2023-04-01",
+      "date_max": "2024-10-01",
+      "years": [
+        2023,
+        2024
+      ],
+      "duplicate_player_dates": 0,
+      "multiple_pitcher_id_rows": 0,
+      "pitch_count_exact_rate": 0.9937,
+      "late_velocity_available_rate": 0.7951,
+      "canonical_coverage_rate": 0.9745,
+      "pitch_count_correlation": 0.9995
+    },
+    "process_summary": [
+      {
+        "role": "SP",
+        "metric": "pbp_csw_rate",
+        "n": 1398,
+        "players": 64,
+        "score_r": -0.056953,
+        "below_72_6_median": 0.277778,
+        "above_72_6_median": 0.27381,
+        "high_minus_low": -0.003968,
+        "cluster_bootstrap_ci_low": -0.016538,
+        "cluster_bootstrap_ci_high": 0.004551
+      },
+      {
+        "role": "SP",
+        "metric": "pbp_zone_rate",
+        "n": 1383,
+        "players": 64,
+        "score_r": -0.053271,
+        "below_72_6_median": 0.472627,
+        "above_72_6_median": 0.468085,
+        "high_minus_low": -0.004542,
+        "cluster_bootstrap_ci_low": -0.02064,
+        "cluster_bootstrap_ci_high": 0.013112
+      },
+      {
+        "role": "SP",
+        "metric": "pbp_hard_velocity",
+        "n": 1398,
+        "players": 64,
+        "score_r": 0.014246,
+        "below_72_6_median": 142.263158,
+        "above_72_6_median": 141.666667,
+        "high_minus_low": -0.596491,
+        "cluster_bootstrap_ci_low": -1.647266,
+        "cluster_bootstrap_ci_high": 0.285905
+      },
+      {
+        "role": "RP",
+        "metric": "pbp_csw_rate",
+        "n": 6167,
+        "players": 105,
+        "score_r": 0.002375,
+        "below_72_6_median": 0.272727,
+        "above_72_6_median": 0.269231,
+        "high_minus_low": -0.003496,
+        "cluster_bootstrap_ci_low": -0.009569,
+        "cluster_bootstrap_ci_high": 0.00606
+      },
+      {
+        "role": "RP",
+        "metric": "pbp_zone_rate",
+        "n": 6091,
+        "players": 105,
+        "score_r": -0.024848,
+        "below_72_6_median": 0.461538,
+        "above_72_6_median": 0.461538,
+        "high_minus_low": 0.0,
+        "cluster_bootstrap_ci_low": -0.009741,
+        "cluster_bootstrap_ci_high": 0.006993
+      },
+      {
+        "role": "RP",
+        "metric": "pbp_hard_velocity",
+        "n": 6094,
+        "players": 105,
+        "score_r": 0.035461,
+        "below_72_6_median": 143.9,
+        "above_72_6_median": 144.0,
+        "high_minus_low": 0.1,
+        "cluster_bootstrap_ci_low": -0.2,
+        "cluster_bootstrap_ci_high": 0.458056
+      }
+    ],
+    "within_appearance_velocity": [
+      {
+        "role": "SP",
+        "n": 1534,
+        "players": 70,
+        "score_r": -0.126481,
+        "below_72_6_median": -1.0,
+        "above_72_6_median": -1.285714,
+        "high_minus_low": -0.285714,
+        "cluster_bootstrap_ci_low": -0.636174,
+        "cluster_bootstrap_ci_high": 0.0
+      },
+      {
+        "role": "RP",
+        "n": 4766,
+        "players": 113,
+        "score_r": -0.052217,
+        "below_72_6_median": 0.25,
+        "above_72_6_median": 0.0,
+        "high_minus_low": -0.25,
+        "cluster_bootstrap_ci_low": -0.333333,
+        "cluster_bootstrap_ci_high": 0.0
+      }
+    ],
+    "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
+    "license": "CC BY 4.0"
   }
 }

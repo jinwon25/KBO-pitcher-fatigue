@@ -11,7 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from kbo_fatigue import load_dataset, validate_dataset
+from kbo_fatigue import (
+    load_dataset,
+    load_pbp_features,
+    validate_dataset,
+    validate_pbp_features,
+)
 
 
 def validate_markdown_links() -> None:
@@ -20,8 +25,10 @@ def validate_markdown_links() -> None:
         ROOT / "README.md",
         ROOT / "docs" / "METHODOLOGY.md",
         ROOT / "docs" / "ORIGINAL_PROJECT.md",
+        ROOT / "docs" / "PUBLIC_DATA_SOURCES.md",
         ROOT / "notebooks" / "README.md",
         ROOT / "data" / "README.md",
+        ROOT / "data" / "external" / "README.md",
         ROOT / "crawlers" / "README.md",
     )
     for markdown in markdown_files:
@@ -45,11 +52,14 @@ def validate_notebook() -> None:
 def main() -> None:
     frame = load_dataset(ROOT / "data" / "final" / "fatigue_with_index.csv")
     checks = validate_dataset(frame)
+    pbp = load_pbp_features(ROOT / "data" / "external" / "pbp_appearance_2023_2024.csv")
+    pbp_checks = validate_pbp_features(pbp, frame)
     validate_markdown_links()
     validate_notebook()
     print(
         f"Validated {checks['rows']:,} rows, {checks['players']} players, "
-        f"{checks['date_min']}–{checks['date_max']}"
+        f"{checks['date_min']}–{checks['date_max']}; "
+        f"PBP coverage {pbp_checks['canonical_coverage_rate']:.1%}"
     )
 
 

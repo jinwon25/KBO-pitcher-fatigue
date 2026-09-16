@@ -2,3 +2,4 @@
 pytest>=8,<9
 jupyter>=1.1,<2
 nbconvert>=7.16,<8
+pyarrow>=18,<26
