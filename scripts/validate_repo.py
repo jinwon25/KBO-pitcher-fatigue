@@ -16,7 +16,15 @@ from kbo_fatigue import load_dataset, validate_dataset
 
 def validate_markdown_links() -> None:
     pattern = re.compile(r"\[[^\]]+\]\((?!https?://|#)([^)]+)\)")
-    for markdown in (ROOT / "README.md", ROOT / "docs" / "METHODOLOGY.md"):
+    markdown_files = (
+        ROOT / "README.md",
+        ROOT / "docs" / "METHODOLOGY.md",
+        ROOT / "docs" / "ORIGINAL_PROJECT.md",
+        ROOT / "notebooks" / "README.md",
+        ROOT / "data" / "README.md",
+        ROOT / "crawlers" / "README.md",
+    )
+    for markdown in markdown_files:
         for target in pattern.findall(markdown.read_text(encoding="utf-8")):
             clean = target.split("#", 1)[0]
             if clean and not (markdown.parent / clean).resolve().exists():

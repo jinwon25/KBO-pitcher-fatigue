@@ -1,4 +1,4 @@
-"""Streamlit explorer for historical KBO pitcher workload signals.
+"""Follow-up Streamlit explorer for the award-winning team project.
 
 The filename is retained for compatibility with the original project link.
 The app itself no longer fits a leaky live model or issues lineup decisions.
@@ -56,9 +56,9 @@ frame = get_data()
 metrics = get_metrics(frame)
 
 st.title("⚾ KBO 투수 피로 신호 탐색")
-st.caption("2020–2024 경기별 기록 · 17,528행 · 163명 · 선발과 불펜 포함")
+st.caption("학술제 수상 분석의 개인 후속 검증 대시보드 · 2020–2024 경기별 기록 · 17,528행 · 163명")
 st.info(
-    "이 앱은 저장된 점수를 탐색하는 포트폴리오용 분석 도구입니다. "
+    "원 프로젝트의 투수 교체 의사결정 지원 방향을 이어 받아, 저장된 점수와 경기 기록을 탐색하는 도구입니다. "
     "0–100 값은 전체 표본 내 백분위이며, 생리적 피로·부상 확률·교체 시점을 뜻하지 않습니다."
 )
 
@@ -120,15 +120,16 @@ st.caption(
     "같은 경기의 기술적 연관입니다. 점수 개발에 경기력 관련 변수가 사용되어 예측력이나 인과효과로 해석할 수 없습니다."
 )
 
-with st.expander("왜 72.6 교체 임계값과 자동 추천을 제외했나요?"):
+with st.expander("왜 현재 앱은 72.6 자동 추천을 보류하나요?"):
     st.write(
         "저장된 데이터로 재계산하면 회복실패 라벨 ROC AUC는 "
         f"{metrics['classification_diagnostics']['recovery_failure_auc']:.3f}, "
         "부상위험도 비결측 여부로 만든 과거 대리 라벨 AUC는 "
         f"{metrics['classification_diagnostics']['injury_proxy_auc']:.3f}입니다. "
-        "두 값 모두 무작위 기준 0.5에 가까워 안전한 의사결정 임계값을 뒷받침하지 못합니다."
+        "두 값 모두 무작위 기준 0.5에 가까워 현재 데이터만으로 운영 임계값을 뒷받침하기 어렵습니다."
     )
     st.write(
-        "원 앱은 WHIP를 포함한 선수기량 지수로 WHIP를 다시 예측해 목표 누수가 있었고, "
-        "문서의 GS 예측 설명과도 달랐습니다. 현재 앱은 해당 모델과 처방 문구를 제거했습니다."
+        "학술제 당시 앱은 WHIP를 포함한 선수기량 지수로 WHIP를 다시 예측해 목표 누수가 있었고, "
+        "문서의 GS 예측 설명과도 달랐습니다. 원 아이디어와 결과는 기록으로 보존하되, 현재 앱은 "
+        "외부 시즌과 실제 라벨로 재검증하기 전까지 해당 자동 모델과 처방 문구를 사용하지 않습니다."
     )
