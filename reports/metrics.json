@@ -287,6 +287,56 @@
         "above_72_6_positive_rate": 0.302552
       }
     ],
+    "release_point_summary": [
+      {
+        "role": "SP",
+        "horizon": "same_appearance",
+        "n": 1520,
+        "players": 70,
+        "score_r": 0.053059,
+        "below_72_6_median_in": 1.91013,
+        "above_72_6_median_in": 1.928208,
+        "high_minus_low_in": 0.018078,
+        "cluster_bootstrap_ci_low": -0.060336,
+        "cluster_bootstrap_ci_high": 0.096392
+      },
+      {
+        "role": "SP",
+        "horizon": "next_appearance",
+        "n": 1383,
+        "players": 64,
+        "score_r": -0.024383,
+        "below_72_6_median_in": 1.921206,
+        "above_72_6_median_in": 1.885616,
+        "high_minus_low_in": -0.03559,
+        "cluster_bootstrap_ci_low": -0.113442,
+        "cluster_bootstrap_ci_high": 0.035619
+      },
+      {
+        "role": "RP",
+        "horizon": "same_appearance",
+        "n": 5199,
+        "players": 113,
+        "score_r": 0.103445,
+        "below_72_6_median_in": 1.775594,
+        "above_72_6_median_in": 1.879802,
+        "high_minus_low_in": 0.104208,
+        "cluster_bootstrap_ci_low": 0.071585,
+        "cluster_bootstrap_ci_high": 0.135947
+      },
+      {
+        "role": "RP",
+        "horizon": "next_appearance",
+        "n": 5008,
+        "players": 105,
+        "score_r": 0.013937,
+        "below_72_6_median_in": 1.807154,
+        "above_72_6_median_in": 1.829668,
+        "high_minus_low_in": 0.022513,
+        "cluster_bootstrap_ci_low": -0.013203,
+        "cluster_bootstrap_ci_high": 0.052649
+      }
+    ],
     "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
     "license": "CC BY 4.0"
   }

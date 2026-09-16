@@ -24,6 +24,7 @@ from kbo_fatigue import (
     load_dataset,
     load_pbp_features,
     process_signal_summary,
+    release_point_summary,
     reliever_re24_decile_summary,
     reliever_re24_summary,
     validate_pbp_features,
@@ -404,6 +405,66 @@ def save_reliever_re24_extension(deciles, summary) -> None:
     plt.close(fig)
 
 
+def save_release_point_extension(summary) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.9))
+    same = summary.loc[summary["horizon"].eq("same_appearance")].set_index("role")
+    roles = ["SP", "RP"]
+    labels = ["Starter", "Reliever"]
+    positions = range(2)
+    width = 0.34
+    axes[0].bar(
+        [value - width / 2 for value in positions],
+        same.loc[roles, "below_72_6_median_in"], width=width,
+        color=BLUE, label="Below 72.6",
+    )
+    axes[0].bar(
+        [value + width / 2 for value in positions],
+        same.loc[roles, "above_72_6_median_in"], width=width,
+        color=RED, label="At or above 72.6",
+    )
+    axes[0].set_xticks(list(positions), labels)
+    axes[0].set_ylabel("Median hard-pitch release dispersion (inches)")
+    axes[0].set_title("Same-appearance consistency", loc="left", fontweight="bold")
+    axes[0].legend(frameon=False)
+    style_axis(axes[0])
+
+    order = [("RP", "same_appearance"), ("SP", "same_appearance"),
+             ("RP", "next_appearance"), ("SP", "next_appearance")]
+    estimates = summary.set_index(["role", "horizon"]).loc[order]
+    y = [3, 2, 1, 0]
+    values = estimates["high_minus_low_in"].to_numpy()
+    axes[1].errorbar(
+        values, y,
+        xerr=[
+            values - estimates["cluster_bootstrap_ci_low"].to_numpy(),
+            estimates["cluster_bootstrap_ci_high"].to_numpy() - values,
+        ],
+        fmt="o", color=NAVY, ecolor=BLUE, capsize=5, markersize=7,
+    )
+    axes[1].axvline(0, color=GRAY, linestyle="--", linewidth=1.2)
+    axes[1].set_yticks(
+        y, ["Reliever · same", "Starter · same", "Reliever · next", "Starter · next"]
+    )
+    axes[1].set_xlabel("At/above 72.6 − below 72.6 (inches; 95% CI)")
+    axes[1].set_title("Current mechanics vs. next outing", loc="left", fontweight="bold")
+    axes[1].grid(axis="x", color=GRID, linewidth=0.8, alpha=0.8)
+    axes[1].grid(axis="y", visible=False)
+    axes[1].spines[["top", "right"]].set_visible(False)
+
+    fig.suptitle(
+        "Release-point consistency adds a mechanical view of the workload score",
+        x=0.05, ha="left", fontsize=15, fontweight="bold", color=NAVY,
+    )
+    fig.text(
+        0.05, 0.01,
+        "Fastball/sinker/cutter · minimum five tracked pitches · radial RMS around the appearance median · player-cluster bootstrap 95% CI.",
+        color=GRAY, fontsize=9.5,
+    )
+    fig.tight_layout(rect=(0, 0.06, 1, 0.91))
+    fig.savefig(FIGURES / "09_release_point_consistency.png", dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     REPORTS.mkdir(exist_ok=True)
     FIGURES.mkdir(exist_ok=True)
@@ -419,6 +480,7 @@ def main() -> None:
     velocity = within_appearance_velocity_summary(frame, pbp, bootstrap_iterations=500)
     relief_re24 = reliever_re24_summary(frame, pbp, bootstrap_iterations=500)
     relief_re24_deciles = reliever_re24_decile_summary(frame, pbp)
+    release_points = release_point_summary(frame, pbp, bootstrap_iterations=500)
     metrics["external_pbp"] = {
         "dataset": {
             key: round(value, 4) if isinstance(value, float) else value
@@ -427,6 +489,7 @@ def main() -> None:
         "process_summary": process.round(6).to_dict(orient="records"),
         "within_appearance_velocity": velocity.round(6).to_dict(orient="records"),
         "reliever_re24_summary": relief_re24.round(6).to_dict(orient="records"),
+        "release_point_summary": release_points.round(6).to_dict(orient="records"),
         "source_revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
         "license": "CC BY 4.0",
     }
@@ -446,6 +509,9 @@ def main() -> None:
     relief_re24_deciles.to_csv(
         REPORTS / "reliever_re24_deciles.csv", index=False, encoding="utf-8"
     )
+    release_points.to_csv(
+        REPORTS / "release_point_validation.csv", index=False, encoding="utf-8"
+    )
     save_score_definition(frame)
     save_outcome_relationship(summary)
     save_validation_diagnostic(metrics)
@@ -454,6 +520,7 @@ def main() -> None:
     save_temporal_model(metrics)
     save_pitch_process_extension(process, velocity)
     save_reliever_re24_extension(relief_re24_deciles, relief_re24)
+    save_release_point_extension(release_points)
     print(f"Built report artifacts in {REPORTS.relative_to(ROOT)}")
 
 

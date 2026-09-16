@@ -45,9 +45,14 @@ python scripts/build_pbp_features.py --download
 | `pbp_close_late_entry` | 7회 이후, 2점차 이내에서 등판했는지 여부 |
 | `pbp_re24_allowed` | 타석별 `실점 + RE_after − RE_before`의 등판 합계 |
 | `pbp_re24_allowed_per_bf` | RE24 허용을 상대 타자 수로 나눈 값 |
+| `pbp_hard_release_side_ft` | 직구·투심·커터 수평 릴리스 포인트 중앙값(ft, 포수 시점) |
+| `pbp_hard_release_height_ft` | 직구·투심·커터 수직 릴리스 포인트 중앙값(ft) |
+| `pbp_hard_release_dispersion_in` | 등판 중앙 릴리스 포인트로부터의 방사형 RMS 거리(inch) |
 
 `pbp_late_velocity_delta`는 강한 공이 6구 이상인 등판에만 계산합니다. 음수이면 등판 후반 구속이 초반보다 낮았다는 뜻입니다.
 
 RE24 기대득점표는 2023–2024 전체 타석의 24개 주자·아웃 상태에서 이닝 종료까지의 평균 득점으로 계산합니다. 타석 도중 투수가 바뀐 97건은 타석을 끝낸 투수에게 해당 타석의 RE24를 귀속했습니다. 이 값은 현재 경기 환경의 득점 기대값이며, 승리확률을 사용하는 공식 gmLI나 WPA는 아닙니다.
+
+릴리스 분산도는 구종 구성의 영향을 줄이기 위해 직구·투심·커터만 사용하고, 추적 구가 5개 이상인 등판에만 계산합니다. `release_pos_x`는 포수 시점의 수평 위치, `release_pos_z`는 수직 위치를 ft 단위로 나타낸다는 [Statcast 컨벤션](https://baseballsavant.mlb.com/csv-docs)을 따릅니다. 이 값은 역학적 변화의 관측 신호이지 생리적 피로의 직접 측정치는 아닙니다.
 
 원 데이터는 NAVER Sports 문자중계에서 파생된 비공식 자료입니다. 원 데이터 카드의 사용 고지에 따라 KBO 또는 NAVER의 공식 승인 자료로 표현하지 않으며, 원문 중계 텍스트는 포함하지 않습니다.

@@ -8,6 +8,7 @@ from kbo_fatigue import (
     load_dataset,
     load_pbp_features,
     process_signal_summary,
+    release_point_summary,
     reliever_re24_decile_summary,
     reliever_re24_summary,
     validate_pbp_features,
@@ -41,6 +42,8 @@ def test_external_pbp_contract_and_coverage(datasets):
     assert pbp["pbp_entry_outs"].between(0, 2).all()
     assert pbp["pbp_entry_runners"].between(0, 3).all()
     assert pbp["pbp_re24_allowed_per_bf"].notna().all()
+    assert pbp["pbp_hard_release_count"].ge(0).all()
+    assert pbp["pbp_hard_release_dispersion_in"].dropna().ge(0).all()
 
 
 def test_re24_matrix_contains_all_base_out_states():
@@ -110,3 +113,16 @@ def test_reliever_re24_separates_description_from_forward_validation(datasets):
     next_high = deciles.loc[("next_appearance", 10), "mean_re24_allowed_per_bf"]
     assert same_high - same_low > 0.5
     assert abs(next_high - next_low) < 0.01
+
+
+def test_release_point_consistency_is_role_and_horizon_specific(datasets):
+    canonical, pbp = datasets
+    summary = release_point_summary(canonical, pbp).set_index(["role", "horizon"])
+    assert summary.loc[("SP", "same_appearance"), "n"] == 1_520
+    assert summary.loc[("RP", "same_appearance"), "n"] == 5_199
+    assert summary.loc[("RP", "same_appearance"), "high_minus_low_in"] == pytest.approx(
+        0.104208, abs=1e-6
+    )
+    assert summary.loc[("RP", "next_appearance"), "score_r"] == pytest.approx(
+        0.013937, abs=1e-6
+    )

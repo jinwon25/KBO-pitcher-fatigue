@@ -17,6 +17,9 @@ PBP_METRICS = (
     "pbp_first_pitch_strike_rate",
     "pbp_late_velocity_delta",
     "pbp_re24_allowed_per_bf",
+    "pbp_hard_release_side_ft",
+    "pbp_hard_release_height_ft",
+    "pbp_hard_release_dispersion_in",
 )
 PROCESS_TARGETS = (
     "pbp_csw_rate",
@@ -32,7 +35,9 @@ PBP_REQUIRED_COLUMNS = {
     "pbp_high_pressure_share", "pbp_entry_inning", "pbp_entry_outs",
     "pbp_entry_runners", "pbp_entry_run_margin", "pbp_entry_base_out_re",
     "pbp_close_late_entry", "pbp_batters_faced", "pbp_re24_allowed",
-    "pbp_re24_allowed_per_bf", "pbp_pitch_count_difference",
+    "pbp_re24_allowed_per_bf", "pbp_hard_release_count",
+    "pbp_hard_release_side_ft", "pbp_hard_release_height_ft",
+    "pbp_hard_release_dispersion_in", "pbp_pitch_count_difference",
 }
 
 
@@ -95,6 +100,10 @@ def validate_pbp_features(
         raise ValueError("매칭된 등판의 상대 타자 수는 1명 이상이어야 합니다.")
     if not np.isfinite(pbp["pbp_re24_allowed_per_bf"]).all():
         raise ValueError("RE24 allowed/BF에 유한하지 않은 값이 있습니다.")
+    if not pbp["pbp_hard_release_count"].ge(0).all():
+        raise ValueError("강한 공 릴리스 추적 구수는 음수가 될 수 없습니다.")
+    if not pbp["pbp_hard_release_dispersion_in"].dropna().ge(0).all():
+        raise ValueError("릴리스 포인트 분산도는 음수가 될 수 없습니다.")
     return checks
 
 
@@ -330,3 +339,66 @@ def reliever_re24_decile_summary(
         )
         .reset_index()
     )
+
+
+def release_point_summary(
+    canonical: pd.DataFrame,
+    pbp: pd.DataFrame,
+    bootstrap_iterations: int = 0,
+) -> pd.DataFrame:
+    """Compare hard-pitch release dispersion now and at the next same-role outing.
+
+    Dispersion is the root-mean-square radial distance, in inches, from the
+    appearance median release point for fastballs, sinkers, and cutters. At
+    least five tracked hard pitches are required.
+    """
+    data = add_pbp_context(canonical, pbp)
+    target = "pbp_hard_release_dispersion_in"
+    grouped = data.groupby(["선수", "보직"], sort=False)
+    data["next_날짜"] = grouped["날짜"].shift(-1)
+    data["next_연도"] = grouped["연도"].shift(-1)
+    data[f"next_{target}"] = grouped[target].shift(-1)
+    data["days_to_next"] = (data["next_날짜"] - data["날짜"]).dt.days
+    data["above_72_6"] = data["피로도지수_점수"].ge(72.6)
+
+    rows: list[dict[str, Any]] = []
+    for role_index, role in enumerate(("SP", "RP")):
+        role_data = data.loc[data["보직"].eq(role)]
+        scopes = (
+            ("same_appearance", target, role_data[target].notna()),
+            (
+                "next_appearance",
+                f"next_{target}",
+                role_data["next_연도"].eq(role_data["연도"])
+                & role_data["days_to_next"].between(1, 30)
+                & role_data[f"next_{target}"].notna(),
+            ),
+        )
+        for horizon_index, (horizon, column, mask) in enumerate(scopes):
+            subset = role_data.loc[
+                mask, ["선수", "피로도지수_점수", "above_72_6", column]
+            ]
+            medians = subset.groupby("above_72_6")[column].median()
+            low_median = float(medians.get(False, np.nan))
+            high_median = float(medians.get(True, np.nan))
+            ci_low, ci_high = _cluster_bootstrap_delta(
+                subset,
+                column,
+                bootstrap_iterations,
+                seed=168 + role_index * 10 + horizon_index,
+            )
+            rows.append(
+                {
+                    "role": role,
+                    "horizon": horizon,
+                    "n": int(len(subset)),
+                    "players": int(subset["선수"].nunique()),
+                    "score_r": float(subset["피로도지수_점수"].corr(subset[column])),
+                    "below_72_6_median_in": low_median,
+                    "above_72_6_median_in": high_median,
+                    "high_minus_low_in": high_median - low_median,
+                    "cluster_bootstrap_ci_low": ci_low,
+                    "cluster_bootstrap_ci_high": ci_high,
+                }
+            )
+    return pd.DataFrame(rows)

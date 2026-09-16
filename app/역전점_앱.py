@@ -106,6 +106,14 @@ def process_table(frame: pd.DataFrame, player: str, date: pd.Timestamp) -> pd.Da
         "RE24 허용": f"{row['pbp_re24_allowed']:+.2f}",
         "RE24 허용 / 상대 타자": f"{row['pbp_re24_allowed_per_bf']:+.3f}",
         "접전 후반 진입": "예" if row["pbp_close_late_entry"] else "아니오",
+        "강한 공 릴리스 분산도": (
+            "-" if pd.isna(row["pbp_hard_release_dispersion_in"])
+            else f"{row['pbp_hard_release_dispersion_in']:.2f} inch"
+        ),
+        "최근 5회 대비 분산도": (
+            "-" if difference("pbp_hard_release_dispersion_in") is None
+            else f"{difference('pbp_hard_release_dispersion_in'):+.1f} inch"
+        ),
     }
     return pd.DataFrame([values])
 

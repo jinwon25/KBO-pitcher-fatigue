@@ -42,7 +42,8 @@ RAW_COLUMNS = [
     "away_score", "pitch_result", "type", "pitch_type", "release_speed_kmh",
     "plate_x", "plate_z", "sz_top", "sz_bot", "outs_when_up", "on_1b",
     "on_2b", "on_3b", "post_home_score", "post_away_score", "post_outs",
-    "runs_scored", "post_on_1b", "post_on_2b", "post_on_3b",
+    "runs_scored", "post_on_1b", "post_on_2b", "post_on_3b", "release_pos_x",
+    "release_pos_z",
 ]
 HARD_PITCHES = {"FF", "SI", "FC"}
 TEAM_NAMES = {
@@ -204,6 +205,22 @@ def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
     hard = group["is_hard"] & tracked
     located = group[["plate_x", "plate_z", "sz_bot", "sz_top"]].notna().all(axis=1)
     first_pitch = group["pitch_number"].eq(1)
+    hard_release = group.loc[
+        group["is_hard"]
+        & group[["release_pos_x", "release_pos_z"]].notna().all(axis=1)
+    ]
+    if len(hard_release) >= 5:
+        release_side = float(hard_release["release_pos_x"].median())
+        release_height = float(hard_release["release_pos_z"].median())
+        radial_inches = 12 * np.sqrt(
+            hard_release["release_pos_x"].sub(release_side).pow(2)
+            + hard_release["release_pos_z"].sub(release_height).pow(2)
+        )
+        release_dispersion = float(np.sqrt(radial_inches.pow(2).mean()))
+    else:
+        release_side = float("nan")
+        release_height = float("nan")
+        release_dispersion = float("nan")
     return pd.Series(
         {
             "pbp_source_games": int(group["game_pk"].nunique()),
@@ -226,6 +243,10 @@ def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
             "pbp_entry_run_margin": int(group["defense_run_margin"].iloc[0]),
             "pbp_entry_base_out_re": float(group["run_expectancy_before"].iloc[0]),
             "pbp_close_late_entry": bool(group["is_close_late"].iloc[0]),
+            "pbp_hard_release_count": int(len(hard_release)),
+            "pbp_hard_release_side_ft": release_side,
+            "pbp_hard_release_height_ft": release_height,
+            "pbp_hard_release_dispersion_in": release_dispersion,
         }
     )
 
@@ -313,6 +334,7 @@ def build_features(
         "pbp_source_games", "pbp_pitcher_ids", "pbp_pitch_count", "pbp_tracked_pitches",
         "pbp_pitch_count_difference", "pbp_entry_inning", "pbp_entry_outs",
         "pbp_entry_runners", "pbp_entry_run_margin", "pbp_batters_faced",
+        "pbp_hard_release_count",
     ]
     for column in integer_columns:
         matched[column] = matched[column].astype(int)
