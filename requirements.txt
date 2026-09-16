@@ -1,26 +1,4 @@
-# Core data / numerical
-numpy
-pandas
-python-dateutil
-scipy
-
-# Modeling
-scikit-learn
-statsmodels
-xgboost
-lightgbm
-catboost
-shap
-
-# Visualization
-matplotlib
-seaborn
-
-# App
-streamlit
-
-# Crawling
-selenium
-undetected-chromedriver
-cloudscraper
-beautifulsoup4
+numpy>=1.26,<3
+pandas>=2.2,<3
+matplotlib>=3.8,<4
+streamlit>=1.39,<2

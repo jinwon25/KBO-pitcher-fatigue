@@ -1,0 +1,48 @@
+{
+  "dataset": {
+    "rows": 17528,
+    "players": 163,
+    "date_min": "2020-05-05",
+    "date_max": "2024-10-01",
+    "years": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ],
+    "duplicate_player_dates": 0,
+    "score_min": 0.0057051574623459,
+    "score_max": 100.0,
+    "percentile_rank_max_error": 1.4210854715202004e-14,
+    "finite_scores": true,
+    "injury_risk_missing_rate": 0.5867183934276586
+  },
+  "correlations": {
+    "FIP": {
+      "overall_r": 0.4822,
+      "within_player_r": 0.4825
+    },
+    "WHIP": {
+      "overall_r": 0.8338,
+      "within_player_r": 0.8365
+    },
+    "ERA": {
+      "overall_r": 0.6374,
+      "within_player_r": 0.6403
+    },
+    "GS": {
+      "overall_r": -0.389,
+      "within_player_r": -0.4507
+    }
+  },
+  "classification_diagnostics": {
+    "recovery_failure_auc": 0.5143,
+    "injury_proxy_auc": 0.5079,
+    "injury_proxy_definition": "부상위험도가 결측이 아니고 0보다 큰 행"
+  },
+  "interpretation": {
+    "score": "피로도지수_점수는 피로도지수의 전체 표본 내 백분위 순위",
+    "scope": "기술적 모니터링 신호이며 생리적 피로·부상·교체 시점을 진단하지 않음"
+  }
+}
