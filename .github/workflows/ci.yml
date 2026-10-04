@@ -1,4 +1,4 @@
-name: Portfolio checks
+name: 분석 검증
 
 on:
   push:

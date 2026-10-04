@@ -1,6 +1,6 @@
 # KBO 투수 피로 신호와 교체 의사결정 분석
 
-[![Portfolio checks](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml/badge.svg)](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) [![코드 라이선스: MIT](https://img.shields.io/badge/License-MIT-3DA639)](LICENSE) [![검증](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml)
 
 KBO 투수의 workload·회복 여건·경기 내 투구 변화를 하나의 점수와 보조 지표로 연결해, **언제 교체·휴식을 검토할지**를 설명한 야구 데이터 분석 프로젝트입니다.
 
@@ -100,7 +100,7 @@ python -m streamlit run app/역전점_앱.py
 3. 당일 상태와 다음 등판 예측을 분리하고, 회복·부상 확률로 표현하지 않습니다.
 4. 점수보다 현장 코치·트레이너의 관찰을 우선하는 **의사결정 보조 도구**로 사용합니다.
 
-## 프로젝트에서 보여 준 역량
+## 주요 분석 판단
 
 - 야구 도메인을 반영한 지표 정의와 선발/불펜 분리
 - 여러 출처의 경기별·선수별·투구별 데이터 통합
@@ -130,12 +130,21 @@ Python 3.11 기준입니다. 상세 데이터 생성 방법은 [데이터 안내
 
 ```bash
 python -m venv .venv
+# macOS/Linux
 source .venv/bin/activate
+# Windows PowerShell에서는 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 make check
 ```
 
-`make check`는 테스트, 보고서·차트 생성, 데이터 검증, 노트북 전체 실행을 수행합니다.
+`make check`는 테스트, 보고서·차트 생성, 데이터 검증, 노트북 전체 실행을 수행합니다. Make가 없는 Windows 환경에서는 아래 순서로 같은 검증을 실행합니다.
+
+```powershell
+python -m pytest -q
+python scripts/build_report.py
+python scripts/validate_repo.py
+python scripts/execute_notebook.py
+```
 
 ## 라이선스와 팀
 
