@@ -2,9 +2,13 @@
 
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) [![코드 라이선스: MIT](https://img.shields.io/badge/License-MIT-3DA639)](LICENSE) [![검증](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jinwon25/KBO-pitcher-fatigue/actions/workflows/ci.yml)
 
-KBO 투수의 workload·회복 여건·경기 내 투구 변화를 하나의 점수와 보조 지표로 연결해, **언제 교체·휴식을 검토할지**를 설명한 야구 데이터 분석 프로젝트입니다.
+KBO 투수의 투구 부담(workload)·회복 여건·경기 내 투구 변화를 하나의 점수와 보조 지표로 연결해, **언제 교체·휴식을 검토할지**를 설명한 야구 데이터 분석 프로젝트입니다.
 
 제4회 중앙대학교 데이터 분석 학회 DArt-B 학술제에서 **대상**을 수상했으며, 발표에서 제시한 피로도 지수와 “역전점” 아이디어를 선발·불펜, 같은 경기·다음 등판, 구속·제구·릴리스 포인트까지 확장했습니다.
+
+## 문서 읽기 안내
+
+[분석 문서 안내](docs/README.md)에서 읽는 순서와 용어 풀이를 확인할 수 있습니다.
 
 ## 프로젝트 한눈에 보기
 
