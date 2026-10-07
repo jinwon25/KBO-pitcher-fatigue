@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from kbo_fatigue import load_dataset
+from kbo_fatigue.appearances import validate_appearances
 
 
 REVISION = "6afc8af044e3bba5f326b688e8cb41d7ff7065ec"
@@ -251,8 +252,44 @@ def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
     )
 
 
+def aggregate_game_appearances(
+    pitches: pd.DataFrame, plate_appearances: pd.DataFrame
+) -> pd.DataFrame:
+    """New-season contract: one source pitcher per source game, never per date."""
+    keys = ["game_pk", "pitcher"]
+    metadata = ["pitcher_name", "game_date", "팀"]
+    if pitches[keys + metadata].isna().any().any():
+        raise ValueError("Missing PBP game/player identity or metadata")
+    grouped = pitches.groupby(keys, sort=True)
+    if grouped[metadata].nunique().gt(1).any().any():
+        raise ValueError("Conflicting PBP metadata within one game appearance")
+    metrics = grouped.apply(
+        lambda group: aggregate_appearance(group.assign(
+            game_pk=group.name[0], pitcher=group.name[1],
+        )), include_groups=False,
+    ).reset_index()
+    result = grouped[metadata].first().reset_index().merge(
+        metrics, on=keys, validate="one_to_one",
+    )
+    re24 = plate_appearances.groupby(keys).agg(
+        pbp_batters_faced=("re24_allowed", "size"),
+        pbp_re24_allowed=("re24_allowed", "sum"),
+    ).reset_index()
+    result = result.merge(re24, on=keys, how="left", validate="one_to_one")
+    result[["pbp_batters_faced", "pbp_re24_allowed"]] = result[
+        ["pbp_batters_faced", "pbp_re24_allowed"]
+    ].fillna(0)
+    result["pbp_re24_allowed_per_bf"] = result["pbp_re24_allowed"].div(
+        result["pbp_batters_faced"].replace(0, np.nan)
+    )
+    result["GameID"] = "pbp:game:" + result["game_pk"].astype(str)
+    result["PlayerID"] = "pbp:player:" + result["pitcher"].astype(str)
+    result = result.rename(columns={"pitcher_name": "Name", "game_date": "Date", "팀": "Team"})
+    return validate_appearances(result)
+
+
 def build_features(
-    source_paths: list[Path], canonical_path: Path
+    source_paths: list[Path], canonical_path: Path | None, *, game_level: bool = False
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pitches = pd.concat(
         [pd.read_parquet(path, columns=RAW_COLUMNS) for path in source_paths],
@@ -260,6 +297,8 @@ def build_features(
     )
     pitches = pitches.loc[pitches["pitch_number"].gt(0)].copy()
     pitches["game_date"] = pd.to_datetime(pitches["game_date"], errors="raise")
+    if not game_level and not pitches["game_date"].dt.year.isin([2023, 2024]).all():
+        raise ValueError("Legacy date aggregation is frozen to 2023–2024; use game_level=True")
     pitches = pitches.sort_values(
         ["game_pk", "at_bat_number", "pitch_number"], kind="stable"
     )
@@ -297,6 +336,11 @@ def build_features(
     if pitches["팀"].isna().any():
         raise ValueError("매핑되지 않은 PBP 팀 코드가 있습니다.")
 
+    if game_level:
+        return aggregate_game_appearances(pitches, plate_appearances), expectancy_table
+
+    # Historical reproduction only. Its 36 multi-game rows are intentionally
+    # unchanged; do not extend this date-level contract to future seasons.
     appearance = (
         pitches.groupby(["pitcher_name", "game_date", "팀"], sort=False, dropna=False)
         .apply(aggregate_appearance, include_groups=False)
@@ -325,7 +369,9 @@ def build_features(
         canonical["연도"].isin(FILES),
         ["선수", "날짜", "연도", "팀", "보직", "투구수"],
     ]
-    matched = canonical_keys.merge(appearance, on=["선수", "날짜", "팀"], how="inner")
+    matched = canonical_keys.merge(
+        appearance, on=["선수", "날짜", "팀"], how="inner", validate="one_to_one"
+    )
     matched["pbp_pitch_count_difference"] = (
         matched["pbp_pitch_count"] - matched["투구수"]
     )

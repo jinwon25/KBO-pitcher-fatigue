@@ -1,78 +1,98 @@
+"""Interactive MYKBO collector: explicitly select the season in the browser.
+
+Usage: python crawlers/투수_크롤링.py --players players.json --year 2025
+players.json is a name -> numeric MYKBO player ID mapping. The browser selection
+is checked against every collected Date; output is always a new staging file.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
 import time
+from pathlib import Path
+
 import pandas as pd
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 
-# undetected-chromedriver로 드라이버 실행
-driver = uc.Chrome()
-wait = WebDriverWait(driver, 10)
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-# 크롤링할 투수 선수명→페이지ID 매핑
-players = {
+from kbo_fatigue.appearances import MYKBO_COLUMNS, mykbo_pitching_record, validate_appearances
 
-}
 
-years = ["2025"]
-all_data = []
+def collect_player(driver, *, name: str, player_id: str, year: int) -> list[dict]:
+    """Read a fully expanded pitching table; never skip stale/malformed rows."""
+    tables = []
+    for table in driver.find_elements("css selector", "table"):
+        headers = [h.text.strip() for h in table.find_elements("css selector", "thead th")]
+        if headers == MYKBO_COLUMNS:
+            tables.append(table)
+    if len(tables) != 1:
+        raise ValueError("Expected one pitching game-log table; inspect current site selectors")
+    records = []
+    for row in tables[0].find_elements("css selector", "tbody tr"):
+        cells = row.find_elements("tag name", "td")
+        if not cells:
+            raise ValueError("Unexpected empty game-log row")
+        records.append(mykbo_pitching_record(
+            [cell.text.strip() for cell in cells],
+            [a.get_attribute("href") for a in cells[0].find_elements("css selector", "a[href]")],
+            name=name, player_id=player_id, year=year,
+        ))
+    validate_appearances(pd.DataFrame(records))
+    return records
 
-for name, pid in players.items():
-    driver.get(f"https://mykbostats.com/players/{pid}")
-    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.ui.dropdown")))
 
-    for year in years:
-        resp = input(f"▶ [{name}] {year} 데이터가 없으면 '없음'을, 아니면 엔터를 눌러주세요… ")
-        if resp.strip() == "없음":
-            print(f"  - [{name}] {year} 스킵")
-            continue
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--players", type=Path, required=True)
+    parser.add_argument("--year", type=int, required=True)
+    parser.add_argument("--snapshot", default="pitchers", help="New output filename stem")
+    args = parser.parse_args()
+    if args.year <= 2024:
+        parser.error("2020–2024 is frozen; use a separate historical migration")
+    if Path(args.snapshot).name != args.snapshot or args.snapshot in {"", ".", ".."}:
+        parser.error("snapshot must be a filename stem")
+    output = ROOT / "data" / "staging" / str(args.year) / f"{args.snapshot}.csv"
+    if output.exists():
+        raise FileExistsError(output)
+    players = json.loads(args.players.read_text(encoding="utf-8"))
+    if not isinstance(players, dict) or not players:
+        raise ValueError("players.json must contain a nonempty name -> ID mapping")
 
-        time.sleep(0.5)
+    # Browser dependencies are optional and loaded only for a live collection.
+    import undetected_chromedriver as uc
+    from selenium.webdriver.support.ui import WebDriverWait
 
-        # Show More 클릭
-        while True:
-            try:
-                btn = driver.find_element(By.CSS_SELECTOR, 'a[phx-click="show_all"]')
-                btn.click()
-                time.sleep(0.2)
-            except (NoSuchElementException, TimeoutException):
-                break
-            except StaleElementReferenceException:
-                time.sleep(0.2)
-                continue
+    records = []
+    driver = uc.Chrome()
+    try:
+        for name, player_id in players.items():
+            driver.get(f"https://mykbostats.com/players/{player_id}")
+            WebDriverWait(driver, 20).until(lambda d: d.find_elements("css selector", "table"))
+            input(f"[{name}] 브라우저에서 {args.year} 투수 경기 로그를 선택하고 엔터: ")
+            # The source has changed UI over time. Fail on unexpected behavior;
+            # a wrong year or truncated season must not be silently relabeled.
+            for _ in range(100):
+                buttons = driver.find_elements("css selector", 'a[phx-click="show_all"]')
+                if not buttons:
+                    break
+                buttons[0].click()
+                time.sleep(0.5)
+            else:
+                raise ValueError("Show More did not finish; no snapshot written")
+            records.extend(collect_player(
+                driver, name=name, player_id=str(player_id), year=args.year,
+            ))
+        frame = validate_appearances(pd.DataFrame(records))
+    finally:
+        driver.quit()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x", encoding="utf-8", newline="") as handle:
+        frame.to_csv(handle, index=False)
+    print(f"Saved {len(frame)} appearances to {output}; season completeness not certified")
 
-        # 테이블 스크래핑
-        rows = driver.find_elements(By.CSS_SELECTOR, "table.sortable tbody tr")
 
-        # ← 여기를 추가
-        year_rows = []
-        for row in rows:
-            try:
-                tds = row.find_elements(By.TAG_NAME, "td")
-                cols = [td.text.strip() for td in tds]
-            except StaleElementReferenceException:
-                continue
-
-            if len(cols) == 16:
-                year_rows.append(cols)
-
-        # 데이터가 없으면 "없음" 한 줄, 있으면 실제 데이터 모두 추가
-        if not year_rows:
-            all_data.append([name, year] + ["없음"] * 16)
-        else:
-            for cols in year_rows:
-                all_data.append([name, year] + cols)
-
-# 드라이버 종료
-driver.quit()
-
-# DataFrame 생성 및 저장
-columns = [
-    "PlayerName", "Year", "Date", "Opp", "Role", "Dec", "ERA", "WHIP",
-    "IP", "NP", "R", "ER", "H", "HR", "SO", "BB", "HB", "GS"
-]
-df = pd.DataFrame(all_data, columns=columns)
-df.to_csv("mykbo_pitchers_by_name.csv", index=False, encoding="utf-8-sig")
-
-print("✅ Saved mykbo_pitchers_by_name.csv")
+if __name__ == "__main__":
+    main()
