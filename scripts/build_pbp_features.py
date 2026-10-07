@@ -105,9 +105,10 @@ def base_state(frame: pd.DataFrame, prefix: str = "") -> pd.Series:
 
 
 def build_plate_appearances(pitches: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build terminal-pitch plate appearances and the 2023–2024 RE24 table.
+    """Build terminal-event plate appearances and a descriptive RE24 table.
 
-    A plate appearance is credited to the pitcher who throws its terminal pitch.
+    A plate appearance is credited to its terminal-event pitcher, including
+    no-pitch walks when supplied by the new-season path.
     The run expectancy table is descriptive of the combined public-data run
     environment; it is not a win-probability or physiological-fatigue model.
     """
@@ -201,7 +202,12 @@ def build_plate_appearances(pitches: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
     return appearances, expectancy_table
 
 
-def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
+def aggregate_appearance(group: pd.DataFrame, *, include_no_pitch_events: bool = False) -> pd.Series:
+    entry = group.iloc[0]
+    source_games = int(group["game_pk"].nunique())
+    pitcher_ids = int(group["pitcher"].nunique())
+    if include_no_pitch_events:
+        group = group.loc[group["pitch_number"].gt(0)]
     tracked = group["release_speed_kmh"].notna()
     hard = group["is_hard"] & tracked
     located = group[["plate_x", "plate_z", "sz_bot", "sz_top"]].notna().all(axis=1)
@@ -224,8 +230,8 @@ def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
         release_dispersion = float("nan")
     return pd.Series(
         {
-            "pbp_source_games": int(group["game_pk"].nunique()),
-            "pbp_pitcher_ids": int(group["pitcher"].nunique()),
+            "pbp_source_games": source_games,
+            "pbp_pitcher_ids": pitcher_ids,
             "pbp_pitch_count": int(len(group)),
             "pbp_tracked_pitches": int(tracked.sum()),
             "pbp_avg_velocity": float(group.loc[tracked, "release_speed_kmh"].mean()),
@@ -238,12 +244,12 @@ def aggregate_appearance(group: pd.DataFrame) -> pd.Series:
             ),
             "pbp_late_velocity_delta": late_velocity_delta(group),
             "pbp_high_pressure_share": float(group["is_high_pressure"].mean()),
-            "pbp_entry_inning": int(group["inning"].iloc[0]),
-            "pbp_entry_outs": int(group["outs_when_up"].iloc[0]),
-            "pbp_entry_runners": int(int(group["base_state"].iloc[0]).bit_count()),
-            "pbp_entry_run_margin": int(group["defense_run_margin"].iloc[0]),
-            "pbp_entry_base_out_re": float(group["run_expectancy_before"].iloc[0]),
-            "pbp_close_late_entry": bool(group["is_close_late"].iloc[0]),
+            "pbp_entry_inning": int(entry["inning"]),
+            "pbp_entry_outs": int(entry["outs_when_up"]),
+            "pbp_entry_runners": int(int(entry["base_state"]).bit_count()),
+            "pbp_entry_run_margin": int(entry["defense_run_margin"]),
+            "pbp_entry_base_out_re": float(entry["run_expectancy_before"]),
+            "pbp_close_late_entry": bool(entry["is_close_late"]),
             "pbp_hard_release_count": int(len(hard_release)),
             "pbp_hard_release_side_ft": release_side,
             "pbp_hard_release_height_ft": release_height,
@@ -272,7 +278,7 @@ def aggregate_game_appearances(
     metrics = grouped.apply(
         lambda group: aggregate_appearance(group.assign(
             game_pk=group.name[0], pitcher=group.name[1],
-        )), include_groups=False,
+        ), include_no_pitch_events=True), include_groups=False,
     ).reset_index()
     result = grouped[metadata].first().reset_index().merge(
         metrics, on=keys, validate="one_to_one",
@@ -301,7 +307,10 @@ def build_features(
         [pd.read_parquet(path, columns=RAW_COLUMNS) for path in source_paths],
         ignore_index=True,
     )
-    pitches = pitches.loc[pitches["pitch_number"].gt(0)].copy()
+    # Keep the historical reproduction unchanged. New seasons must retain
+    # no-pitch terminal events for batters faced and run expectancy.
+    if not game_level:
+        pitches = pitches.loc[pitches["pitch_number"].gt(0)].copy()
     pitches["game_date"] = pd.to_datetime(pitches["game_date"], errors="raise")
     if game_level:
         pitch_key = ["game_pk", "at_bat_number", "pitch_number"]
@@ -309,6 +318,12 @@ def build_features(
             raise ValueError("Missing PBP pitch identity")
         if pitches.duplicated(pitch_key).any():
             raise ValueError("Duplicate PBP pitch key; overlapping source files must be resolved")
+        if pitches["pitch_number"].lt(0).any():
+            raise ValueError("Negative PBP pitch number")
+        zero_keys = pitches.loc[pitches.pitch_number.eq(0), ["game_pk", "at_bat_number"]]
+        thrown_keys = pitches.loc[pitches.pitch_number.gt(0), ["game_pk", "at_bat_number"]]
+        if not zero_keys.merge(thrown_keys, on=["game_pk", "at_bat_number"]).empty:
+            raise ValueError("Ambiguous zero-pitch event within a pitched plate appearance")
     if not game_level and not pitches["game_date"].dt.year.isin([2023, 2024]).all():
         raise ValueError("Legacy date aggregation is frozen to 2023–2024; use game_level=True")
     pitches = pitches.sort_values(

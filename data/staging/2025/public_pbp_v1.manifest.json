@@ -1,0 +1,66 @@
+{
+  "year": 2025,
+  "rows": 7025,
+  "players": 281,
+  "date_min": "2025-03-22",
+  "date_max": "2025-10-04",
+  "raw_rows": 217970,
+  "pitches": 217848,
+  "no_pitch_events": 122,
+  "plate_appearances": 56139,
+  "same_day_repeat_appearances": 23,
+  "identity_validated": true,
+  "season_complete": false,
+  "holdout_ready": false,
+  "status": "staging_only_requires_official_totals_crosswalk_and_label_review",
+  "source": {
+    "dataset": "slothman3878/kbo_playbyplay",
+    "revision": "6afc8af044e3bba5f326b688e8cb41d7ff7065ec",
+    "url": "https://huggingface.co/datasets/slothman3878/kbo_playbyplay/resolve/6afc8af044e3bba5f326b688e8cb41d7ff7065ec/v0/kbo_pbp_2025.parquet",
+    "sha256": "2c824919495809722a5ff0290a823ff9a44d88f61640ad9b288ff3dca2652f2c",
+    "license": "CC-BY-4.0",
+    "attribution": "slothman3878; structured derivatives of NAVER Sports/KBO records"
+  },
+  "schedule": {
+    "retrieved_at": "2026-10-07T14:30:10.595688+00:00",
+    "through": "2025-12-31",
+    "snapshot_sha256": "9d5543ca23620e737632ac8d52ef6cb405e02b941914e16361c6762e4a5d3937",
+    "urls": [
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-01-01&toDate=2025-01-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-02-01&toDate=2025-02-28&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-03-01&toDate=2025-03-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-04-01&toDate=2025-04-30&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-05-01&toDate=2025-05-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-06-01&toDate=2025-06-30&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-07-01&toDate=2025-07-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-08-01&toDate=2025-08-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-09-01&toDate=2025-09-30&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-10-01&toDate=2025-10-31&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-11-01&toDate=2025-11-30&roundCodes=kbo_r&size=500&page=1",
+      "https://api-gw.sports.naver.com/schedule/games?fields=basic%2Cschedule%2Cbaseball&upperCategoryId=kbaseball&categoryId=kbo&fromDate=2025-12-01&toDate=2025-12-31&roundCodes=kbo_r&size=500&page=1"
+    ]
+  },
+  "coverage": {
+    "pbp_games": 720,
+    "schedule_completed_games": 720,
+    "schedule_canceled_games": 84,
+    "schedule_pending_games": 0,
+    "missing_completed_games": [],
+    "missing_completed_games_through_pbp_date": [],
+    "schedule_completed_coverage": true,
+    "schedule_suspended_game_ids": [],
+    "scope": "NAVER regular-season schedule snapshot; not independent official KBO certification"
+  },
+  "artifacts": {
+    "public_pbp_v1.csv": "4806b5b038ed84d67ae9f0a5dc02b454978d001862fac8fe215b43bff7f70fef",
+    "public_pbp_v1.schedule.csv": "ef70a8183a644fb2866cfc315a4a6607231a2cd2020b7431a461608b3dec6aeb",
+    "public_pbp_v1.schedule.json.gz": "8a82020215fa26db696d37422f8606f924811483552b6caaebfc7f59ed2a396e",
+    "public_pbp_v1.re24.csv": "13f3a82fc58ddf6bc223595e0331fe3341ed4e7d21bf8e5be6a5d0bf9544e6d6"
+  },
+  "limitations": [
+    "PBP-derived metrics, not verified official season totals or injury labels",
+    "RE24 is descriptive of this snapshot and must not train a holdout model",
+    "ScheduledStartKST is scheduled local time, not verified actual pitch time",
+    "Cross-source IDs are not mapped; legacy 2025 rows remain unresolved"
+  ]
+}
