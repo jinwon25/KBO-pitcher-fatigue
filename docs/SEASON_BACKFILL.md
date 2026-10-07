@@ -8,7 +8,12 @@
 신규 MYKBO 수집은 `crawlers/투수_크롤링.py` →
 `kbo_fatigue/appearances.py` → `scripts/stage_season.py`를 거칩니다.
 출력은 `data/staging/<year>/` 안의 새로운 CSV와 해시 manifest로 제한됩니다.
-같은 경로 덮어쓰기는 거부합니다. 검증 전에 오류가 나면 CSV를 쓰지 않습니다.
+같은 경로 덮어쓰기와 staging 밖을 가리키는 심볼릭 링크를 거부합니다.
+검증·직렬화가 끝난 내용을 임시 파일에 쓴 뒤 기존 파일을 교체하지 않고 게시합니다.
+일반적인 저장 오류는 이번 실행이 게시한 파일만 정리하며 다른 실행의 파일은 보존합니다.
+manifest는 마지막에 게시되며 완료 표시로 사용합니다. 프로세스 강제 종료 후 남은
+manifest 없는 CSV는 검증 완료본으로 취급하지 않습니다. 입력 해시는 실제로 파싱한
+바이트에서 계산하므로 실행 도중 원본이 바뀌어도 감사 기록과 입력이 어긋나지 않습니다.
 
 | 필드 | 계약 |
 | --- | --- |
@@ -54,6 +59,7 @@
 신규 연도를 날짜 경로에 넣으면 오류가 발생합니다.
 
 백필 개발에서 `build_features(paths, None, game_level=True)`를 사용하면
+`(game_pk, at_bat_number, pitch_number)` 중복을 먼저 차단한 뒤
 `(game_pk, pitcher)`로 구속·투구수·진입 상황·RE24를 각각 집계하고
 `pbp:game:*`, `pbp:player:*`를 보존합니다. 기존 정본과 날짜로 결합하지 않습니다.
 공개 PBP 다운로드 CLI는 기존 고정 2023–2024 revision만 받습니다.

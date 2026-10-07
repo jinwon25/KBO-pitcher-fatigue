@@ -260,6 +260,12 @@ def aggregate_game_appearances(
     metadata = ["pitcher_name", "game_date", "팀"]
     if pitches[keys + metadata].isna().any().any():
         raise ValueError("Missing PBP game/player identity or metadata")
+    if plate_appearances[keys + ["re24_allowed"]].isna().any().any():
+        raise ValueError("Missing PBP plate-appearance identity or RE24")
+    pitcher_keys = pd.MultiIndex.from_frame(pitches[keys].drop_duplicates())
+    pa_keys = pd.MultiIndex.from_frame(plate_appearances[keys].drop_duplicates())
+    if not pa_keys.isin(pitcher_keys).all():
+        raise ValueError("Plate appearances reference an unknown game/pitcher")
     grouped = pitches.groupby(keys, sort=True)
     if grouped[metadata].nunique().gt(1).any().any():
         raise ValueError("Conflicting PBP metadata within one game appearance")
@@ -297,6 +303,12 @@ def build_features(
     )
     pitches = pitches.loc[pitches["pitch_number"].gt(0)].copy()
     pitches["game_date"] = pd.to_datetime(pitches["game_date"], errors="raise")
+    if game_level:
+        pitch_key = ["game_pk", "at_bat_number", "pitch_number"]
+        if pitches[pitch_key + ["pitcher", "pitcher_name", "game_date"]].isna().any().any():
+            raise ValueError("Missing PBP pitch identity")
+        if pitches.duplicated(pitch_key).any():
+            raise ValueError("Duplicate PBP pitch key; overlapping source files must be resolved")
     if not game_level and not pitches["game_date"].dt.year.isin([2023, 2024]).all():
         raise ValueError("Legacy date aggregation is frozen to 2023–2024; use game_level=True")
     pitches = pitches.sort_values(

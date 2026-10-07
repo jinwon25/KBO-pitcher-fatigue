@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from kbo_fatigue.appearances import MYKBO_COLUMNS, mykbo_pitching_record, validate_appearances
+from kbo_fatigue.snapshots import publish_snapshot, staging_csv_path
 
 
 def collect_player(driver, *, name: str, player_id: str, year: int) -> list[dict]:
@@ -54,7 +55,9 @@ def main() -> None:
         parser.error("2020–2024 is frozen; use a separate historical migration")
     if Path(args.snapshot).name != args.snapshot or args.snapshot in {"", ".", ".."}:
         parser.error("snapshot must be a filename stem")
-    output = ROOT / "data" / "staging" / str(args.year) / f"{args.snapshot}.csv"
+    output = staging_csv_path(
+        ROOT, args.year, ROOT / "data" / "staging" / str(args.year) / f"{args.snapshot}.csv",
+    )
     if output.exists():
         raise FileExistsError(output)
     players = json.loads(args.players.read_text(encoding="utf-8"))
@@ -88,9 +91,7 @@ def main() -> None:
         frame = validate_appearances(pd.DataFrame(records))
     finally:
         driver.quit()
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("x", encoding="utf-8", newline="") as handle:
-        frame.to_csv(handle, index=False)
+    publish_snapshot({output: frame.to_csv(index=False, lineterminator="\n").encode("utf-8")})
     print(f"Saved {len(frame)} appearances to {output}; season completeness not certified")
 
 

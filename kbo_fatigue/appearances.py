@@ -21,6 +21,8 @@ MYKBO_COLUMNS = [
 
 def mykbo_game_identity(href: str) -> tuple[str, str]:
     """Accept numeric game URLs with optional display slugs, queries/fragments."""
+    if not isinstance(href, str) or not href.strip():
+        raise ValueError(f"Missing MYKBO game URL: {href!r}")
     url = urlsplit(urljoin("https://mykbostats.com/", href.strip()))
     match = re.fullmatch(r"/games/([1-9][0-9]*)(?:-[^/]*)?/?", url.path)
     if (
@@ -64,6 +66,10 @@ def mykbo_pitching_record(
 
 def validate_appearances(frame: pd.DataFrame) -> pd.DataFrame:
     """Return a normalized copy; reject missing, repeated or inconsistent keys."""
+    if frame.columns.duplicated().any():
+        raise ValueError("Duplicate column labels")
+    if any(str(c) == "__match" or str(c).endswith("__right") for c in frame.columns):
+        raise ValueError("Reserved merge column name")
     required = APPEARANCE_KEY + ["Date"]
     missing = set(required) - set(frame.columns)
     if missing:
@@ -82,6 +88,10 @@ def validate_appearances(frame: pd.DataFrame) -> pd.DataFrame:
     game_source = result["GameID"].str.split(":").str[0]
     if not player_source.eq(game_source).all():
         raise ValueError("PlayerID/GameID source mismatch; a verified crosswalk is required")
+    for column, kind in (("PlayerID", "player"), ("GameID", "game")):
+        mykbo = result.loc[game_source.eq("mykbo"), column]
+        if not mykbo.str.fullmatch(rf"mykbo:{kind}:[1-9][0-9]*").all():
+            raise ValueError(f"MYKBO {column} must contain a numeric source ID")
     dates = pd.to_datetime(result["Date"], format="%Y-%m-%d", errors="raise")
     if dates.isna().any() or not dates.eq(dates.dt.normalize()).all():
         raise ValueError("Date must be a non-null game date, without time")

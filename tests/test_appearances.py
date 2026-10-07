@@ -244,3 +244,119 @@ def test_collector_preserves_date_cell_links_without_browser():
     rows[0].children[("tag name", "td")][0].children.clear()
     with pytest.raises(ValueError, match="exactly one"):
         module.collect_player(driver, name="장현식", player_id="572", year=2025)
+
+
+def test_staging_rejects_symlink_into_frozen_data(tmp_path):
+    from kbo_fatigue.snapshots import staging_csv_path
+    final = tmp_path / "data/final"
+    final.mkdir(parents=True)
+    staging_dir = tmp_path / "data/staging"
+    staging_dir.mkdir()
+    (staging_dir / "2025").symlink_to(final, target_is_directory=True)
+    with pytest.raises(ValueError, match="under"):
+        staging_csv_path(tmp_path, 2025, staging_dir / "2025/new.csv")
+    assert list(final.iterdir()) == []
+
+
+def test_snapshot_publication_failure_rolls_back_own_files(tmp_path, monkeypatch):
+    from kbo_fatigue import snapshots
+    output = tmp_path / "snapshot.csv"
+    manifest = tmp_path / "snapshot.manifest.json"
+    original_link = snapshots.os.link
+
+    def interrupt_manifest(source, destination):
+        if destination == manifest:
+            raise OSError("simulated disk error")
+        return original_link(source, destination)
+
+    monkeypatch.setattr(snapshots.os, "link", interrupt_manifest)
+    with pytest.raises(OSError, match="disk error"):
+        snapshots.publish_snapshot({output: b"complete csv", manifest: b"{}"})
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_concurrent_snapshot_cannot_be_overwritten(tmp_path, monkeypatch):
+    from kbo_fatigue import snapshots
+    output = tmp_path / "snapshot.csv"
+    original_link = snapshots.os.link
+
+    def concurrent_writer(source, destination):
+        destination.write_bytes(b"other writer")
+        return original_link(source, destination)
+
+    monkeypatch.setattr(snapshots.os, "link", concurrent_writer)
+    with pytest.raises(FileExistsError):
+        snapshots.publish_snapshot({output: b"our content"})
+    assert output.read_bytes() == b"other writer"
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_manifest_hashes_the_bytes_actually_parsed(appearances, tmp_path, monkeypatch):
+    monkeypatch.setattr(staging, "ROOT", tmp_path)
+    source = tmp_path / "input.csv"
+    appearances.to_csv(source, index=False)
+    original_bytes = source.read_bytes()
+    original_read = pd.read_csv
+
+    def changing_source(*args, **kwargs):
+        result = original_read(*args, **kwargs)
+        source.write_bytes(b"changed after reading")
+        return result
+
+    monkeypatch.setattr(staging.pd, "read_csv", changing_source)
+    audit = staging.stage_season([source], [], 2025, tmp_path / "data/staging/2025/test.csv")
+    assert audit["inputs"][0]["sha256"] == hashlib.sha256(original_bytes).hexdigest()
+    assert source.read_bytes() != original_bytes
+
+
+@pytest.mark.parametrize("column,value", [("PlayerID", "mykbo:player:unknown"),
+                                         ("GameID", "mykbo:game:013007")])
+def test_source_numeric_ids_are_required(appearances, column, value):
+    appearances.loc[0, column] = value
+    with pytest.raises(ValueError, match="numeric source ID"):
+        validate_appearances(appearances)
+
+
+def test_reserved_or_duplicate_columns_cannot_hide_merge_metadata(appearances):
+    with pytest.raises(ValueError, match="Reserved"):
+        validate_appearances(appearances.assign(Date__right="2025-05-10"))
+    with pytest.raises(ValueError, match="Duplicate column"):
+        validate_appearances(pd.concat([appearances, appearances[["Date"]]], axis=1))
+
+
+def test_new_pbp_source_overlap_is_rejected_before_aggregation(tmp_path):
+    from scripts.build_pbp_features import RAW_COLUMNS
+    row = {column: None for column in RAW_COLUMNS}
+    row.update(game_pk=101, pitcher=9, pitcher_name="테스트", game_date="2025-05-17",
+               at_bat_number=1, pitch_number=1)
+    source = tmp_path / "pitches.parquet"
+    pd.DataFrame([row]).to_parquet(source)
+    with pytest.raises(ValueError, match="Duplicate PBP pitch"):
+        build_features([source, source], None, game_level=True)
+
+
+def test_game_level_pbp_parquet_pipeline_separates_doubleheader(tmp_path):
+    from scripts.build_pbp_features import RAW_COLUMNS
+    rows = []
+    for game, speed in [(101, 140.), (102, 150.)]:
+        for outs in range(3):
+            for bases in range(8):
+                row = {column: None for column in RAW_COLUMNS}
+                row.update(game_pk=game, pitcher=9, pitcher_name="테스트", game_date="2025-05-17",
+                    home_team="LG", away_team="KT", inning=1, inning_topbot="top",
+                    at_bat_number=outs*8+bases+1, pitch_number=1, home_score=0, away_score=0,
+                    pitch_result="T", type="S", pitch_type="FF", release_speed_kmh=speed,
+                    plate_x=0., plate_z=2., sz_bot=1., sz_top=3., outs_when_up=outs,
+                    on_1b=11 if bases & 1 else None, on_2b=12 if bases & 2 else None,
+                    on_3b=13 if bases & 4 else None, post_home_score=0, post_away_score=0,
+                    post_outs=3, runs_scored=0, release_pos_x=1., release_pos_z=5.)
+                rows.append(row)
+    source = tmp_path / "doubleheader.parquet"
+    pd.DataFrame(rows).to_parquet(source)
+    actual, expectancy = build_features([source], None, game_level=True)
+    assert actual.GameID.tolist() == ["pbp:game:101", "pbp:game:102"]
+    assert actual.pbp_pitch_count.tolist() == [24, 24]
+    assert actual.pbp_batters_faced.tolist() == [24, 24]
+    assert actual.pbp_hard_velocity.tolist() == [140., 150.]
+    assert actual.pbp_source_games.eq(1).all()
+    assert len(expectancy) == 24
