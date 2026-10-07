@@ -26,6 +26,7 @@ def validate_markdown_links() -> None:
         ROOT / "docs" / "METHODOLOGY.md",
         ROOT / "docs" / "ORIGINAL_PROJECT.md",
         ROOT / "docs" / "PUBLIC_DATA_SOURCES.md",
+        ROOT / "docs" / "SEASON_BACKFILL.md",
         ROOT / "notebooks" / "README.md",
         ROOT / "data" / "README.md",
         ROOT / "data" / "external" / "README.md",
