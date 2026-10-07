@@ -30,6 +30,7 @@ def validate_markdown_links() -> None:
         ROOT / "notebooks" / "README.md",
         ROOT / "data" / "README.md",
         ROOT / "data" / "external" / "README.md",
+        ROOT / "data" / "staging" / "README.md",
         ROOT / "crawlers" / "README.md",
     )
     for markdown in markdown_files:

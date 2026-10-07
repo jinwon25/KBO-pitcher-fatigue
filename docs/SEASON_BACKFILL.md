@@ -62,8 +62,12 @@ manifest 없는 CSV는 검증 완료본으로 취급하지 않습니다. 입력 
 `(game_pk, at_bat_number, pitch_number)` 중복을 먼저 차단한 뒤
 `(game_pk, pitcher)`로 구속·투구수·진입 상황·RE24를 각각 집계하고
 `pbp:game:*`, `pbp:player:*`를 보존합니다. 기존 정본과 날짜로 결합하지 않습니다.
-공개 PBP 다운로드 CLI는 기존 고정 2023–2024 revision만 받습니다.
-2025/2026 PBP 원본 확보, 라이선스·해시 고정, MYKBO와의 crosswalk는 별도 작업입니다.
+기존 공개 PBP CLI는 고정 2023–2024 재현 전용입니다. 신규
+`scripts/backfill_public_pbp.py`는 2025 전체 공개 PBP와 2026 부분 PBP를
+고정 revision·SHA-256으로 받아 NAVER 일정 API와 대조하고 staging에만 게시합니다.
+[실제 스냅샷과 재현 명령](../data/staging/README.md)을 참고하세요.
+신규 경로는 무투구 사건을 타석·RE24·최초 등판 상황에 포함하고 투구수·구속에서는 제외합니다.
+0번 사건과 실제 투구가 한 타석에 섞이는 미지원 스키마는 추정 정렬 없이 오류 처리합니다.
 
 ## 전체 시즌 검증 전 필요한 조건
 
@@ -79,8 +83,8 @@ manifest 없는 CSV는 검증 완료본으로 취급하지 않습니다. 입력 
 
 manifest의 `identity_validated=true`는 키 검증 통과만 의미합니다.
 `season_complete=false`, `holdout_ready=false`는 자동으로 true가 되지 않습니다.
-현재 전체 시즌 백필을 위한 안전한 저장·결합 경로는 준비됐지만, 전체 원천 수집과
-crosswalk·일정/라벨 대조가 완료된 것은 아닙니다.
+2025 공개 PBP 720경기 백필과 NAVER 완료 일정 대조는 완료했습니다.
+독립 공식 기록·출처 간 crosswalk·라벨 검증은 남아 있습니다. 2026은 470경기 부분 자료로 유지합니다.
 
 ```bash
 make check

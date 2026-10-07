@@ -335,7 +335,8 @@ def test_new_pbp_source_overlap_is_rejected_before_aggregation(tmp_path):
         build_features([source, source], None, game_level=True)
 
 
-def test_game_level_pbp_parquet_pipeline_separates_doubleheader(tmp_path):
+@pytest.mark.parametrize("no_pitch_walk", [False, True])
+def test_game_level_pbp_parquet_pipeline_separates_doubleheader(tmp_path, no_pitch_walk):
     from scripts.build_pbp_features import RAW_COLUMNS
     rows = []
     for game, speed in [(101, 140.), (102, 150.)]:
@@ -351,12 +352,47 @@ def test_game_level_pbp_parquet_pipeline_separates_doubleheader(tmp_path):
                     on_3b=13 if bases & 4 else None, post_home_score=0, post_away_score=0,
                     post_outs=3, runs_scored=0, release_pos_x=1., release_pos_z=5.)
                 rows.append(row)
+    if no_pitch_walk:
+        for game in (101, 102):
+            walk = next(row.copy() for row in rows if row["game_pk"] == game)
+            walk.update(at_bat_number=0, pitch_number=0, release_speed_kmh=None, on_2b=12,
+                        pitch_type=None, pitch_result=None, type=None, post_outs=0, post_on_1b=11)
+            rows.append(walk)
     source = tmp_path / "doubleheader.parquet"
     pd.DataFrame(rows).to_parquet(source)
     actual, expectancy = build_features([source], None, game_level=True)
     assert actual.GameID.tolist() == ["pbp:game:101", "pbp:game:102"]
     assert actual.pbp_pitch_count.tolist() == [24, 24]
-    assert actual.pbp_batters_faced.tolist() == [24, 24]
+    assert actual.pbp_batters_faced.tolist() == [24 + no_pitch_walk, 24 + no_pitch_walk]
     assert actual.pbp_hard_velocity.tolist() == [140., 150.]
+    assert actual.pbp_entry_runners.tolist() == [int(no_pitch_walk)] * 2
     assert actual.pbp_source_games.eq(1).all()
     assert len(expectancy) == 24
+
+
+def test_no_pitch_only_appearance_is_retained_with_entry_context():
+    row = dict(game_pk=101, pitcher=9, pitcher_name="테스트", game_date="2025-05-17",
+        팀="LG", release_speed_kmh=None, is_hard=False, plate_x=None, plate_z=None,
+        sz_bot=None, sz_top=None, pitch_number=0, release_pos_x=None, release_pos_z=None,
+        is_csw=False, is_zone=False, is_first_pitch_strike=False, is_high_pressure=True,
+        inning=8, outs_when_up=1, base_state=6, defense_run_margin=1,
+        run_expectancy_before=.5, is_close_late=True)
+    pitches = pd.DataFrame([row])
+    pa = pd.DataFrame([dict(game_pk=101, pitcher=9, re24_allowed=.2)])
+    actual = aggregate_game_appearances(pitches, pa).iloc[0]
+    assert actual.pbp_pitch_count == 0 and actual.pbp_batters_faced == 1
+    assert actual.pbp_source_games == 1 and actual.pbp_pitcher_ids == 1
+    assert actual.pbp_entry_inning == 8 and actual.pbp_entry_runners == 2
+    assert actual.pbp_re24_allowed == .2
+    assert pd.isna(actual.pbp_avg_velocity) and pd.isna(actual.pbp_hard_usage)
+
+
+def test_zero_and_thrown_events_in_one_pa_are_quarantined(tmp_path):
+    from scripts.build_pbp_features import RAW_COLUMNS
+    row = {column: None for column in RAW_COLUMNS}
+    row.update(game_pk=101, pitcher=9, pitcher_name="테스트", game_date="2025-05-17",
+               at_bat_number=1, pitch_number=1)
+    source = tmp_path / "ambiguous.parquet"
+    pd.DataFrame([row, dict(row, pitch_number=0)]).to_parquet(source)
+    with pytest.raises(ValueError, match="Ambiguous zero-pitch"):
+        build_features([source], None, game_level=True)
